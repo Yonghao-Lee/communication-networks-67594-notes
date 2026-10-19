@@ -1,0 +1,1125 @@
+% ===================================================================
+% Week 02 -- Introduction to Communication Networks (HUJI 67594)
+% Source (in materials/week02/): "2 layers+broadcast.pptx.pdf" (lecture,
+% Y. Gilad). No tutorial file was provided for this week.
+% References: Kurose & Ross, Computer Networking: A Top-Down Approach (8th ed.)
+% [KR], ch. 1.5, 6.1, 6.3, 6.4.1-6.4.2, 7.2, 7.3.2.
+% Build: pdflatex -interaction=nonstopmode week02.tex  (twice)
+% ===================================================================
+\input{preamble}
+\graphicspath{{figures/week02/}}
+\renewcommand{\headleft}{67594 \textperiodcentered\ WEEK 02}
+\renewcommand{\headright}{INTRODUCTION TO COMMUNICATION NETWORKS}
+
+\newcommand{\figcap}[1]{\par\smallskip{\small\color{muted}#1}\par}
+\newcommand{\tocpart}[1]{\par\smallskip{\ttfamily\scriptsize\color{pgreen}#1}\par}
+\newcommand{\parttitle}[2]{%
+  \clearpage
+  {\ttfamily\small\color{pgreen}#1}\par\vspace{2pt}
+  {\sffamily\bfseries\fontsize{26}{30}\selectfont\color{pgold}#2}\par
+  \vspace{4pt}{\color{border}\rule{\linewidth}{1.8pt}}\par\vspace{0.6em}%
+  \addtocontents{toc}{\protect\tocpart{#1}}}
+\newcommand{\slidefig}[2]{\begin{center}\fcolorbox{border}{white}{\includegraphics[width=#1]{#2}}\end{center}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\PROP}{\text{PROP}}
+\newcommand{\TRANSP}{\text{TRANSP}}
+\DeclareRobustCommand{\src}[1]{{\ttfamily\scriptsize\textcolor{muted}{[#1]}}}
+\usepackage{etoolbox}
+\pretocmd{\section}{\needspace{12\baselineskip}}{}{}
+
+\begin{document}
+
+% ---------------- title block ----------------
+{\ttfamily\small\color{pgreen}HUJI \textperiodcentered\ 67594 \textperiodcentered\ INTRODUCTION TO COMMUNICATION NETWORKS}\par\vspace{6pt}
+{\sffamily\bfseries\fontsize{30}{34}\selectfont\color{pgold}Week 02}\par\vspace{4pt}
+{\sffamily\bfseries\Large\color{pgold}Layering; Multiple Access on a Shared Link}\par\vspace{4pt}
+{\raggedright\ttfamily\small\color{pcyan}modularity \textperiodcentered\ protocols \textperiodcentered\ the five layers \textperiodcentered\ encapsulation \textperiodcentered\ TDMA/FDMA \textperiodcentered\ ALOHA \textperiodcentered\ CSMA/CD \textperiodcentered\ Ethernet \textperiodcentered\ CSMA/CA \textperiodcentered\ RTS/CTS\par}
+\vspace{0.8em}
+
+\begin{plainbox}
+\textbf{What this week contains.} This week's only file is the lecture (``2 layers+broadcast'', 103 slides); there was no separate
+tutorial file. So Part A is the lecture, written as a textbook chapter, followed by practice problems and a cheat sheet.
+The lecture's ``Probability 101'' block (slides 49--67) repeats Tutorial 1, which Week 01 Part B solves in full. Here it gets a short recap,
+plus the one new mathematical tool that the MAC analysis needs, the limit $(1-1/N)^N\to1/e$.
+\end{plainbox}
+
+{\ttfamily\small\color{pgreen}CONTENTS}
+\begin{multicols}{2}\footnotesize\setlength{\parskip}{0pt}
+\setcounter{tocdepth}{1}
+\makeatletter\@starttoc{toc}\makeatother
+\end{multicols}
+
+% =================================================================
+\parttitle{PART A \textperiodcentered\ LECTURE 2}{Layering and the Broadcast Link}
+% =================================================================
+
+\section{Modularity: why networks are built in pieces}
+
+A network is one of the largest systems ever built. Nobody could design it as a single program. Like every large computer system, it is split into
+\emph{modules}.
+
+\begin{defn}[Module, interface, abstraction]
+\begin{itemize}
+  \item A \term{module} is a part of a system that does one well-defined job.
+  \item Its \term{interface} is the list of things other modules may ask it to do, and what they get back.
+  \item An \term{abstraction} is what the interface lets you \emph{forget}: you use the module without knowing how it works inside.
+\end{itemize}
+\end{defn}
+
+\begin{example}[Modularity you already use]
+\begin{itemize}
+  \item A \textbf{library}: you call \texttt{sort(list)} without knowing whether it runs quicksort or mergesort.
+  \item A \textbf{programming language and its compiler}: you write \texttt{x = y + z} without knowing the CPU's registers and instruction set.
+        The same program compiles for an Intel laptop and an ARM phone.
+\end{itemize}
+\end{example}
+
+\begin{formula}[What well-defined interfaces buy you]
+\begin{itemize}
+  \item \textbf{Hidden implementation}: a module's inside can be changed freely, and the change stays local.
+  \item \textbf{Extensibility}: new functionality is added by adding new modules.
+  \item \textbf{Evolution}: the system can keep improving piece by piece, for decades.
+  \item \textbf{Isolated assumptions}: each module's assumptions stay inside it, and only high-level abstractions are shown outside.
+\end{itemize}
+\end{formula}
+
+\begin{pitfall}[Modularity is not free]
+Hiding information \hl{can hurt performance}. A module that cannot see inside its neighbours cannot use what they know. For example, a module that
+does not know the link is wireless may treat a loss as congestion. The trade-off is \textbf{ease of implementation vs.\ performance}, and networking chooses ease almost every time.
+\end{pitfall}
+
+\subsection{What is special about \emph{network} modularity}
+
+In a single program all modules run on one machine. In a network the implementation is \textbf{distributed across many machines}, hosts and routers.
+So the designers must decide three things:
+\begin{enumerate}
+  \item \textbf{How to break the system into modules}: the answer is \term{layering} (this lecture).
+  \item \textbf{Where each module is implemented}: at the hosts, or inside the network?
+  \item \textbf{Where state is stored}: the principle of \term{fate-sharing} (later in the course).
+\end{enumerate}
+The lecture addresses each choice when it becomes relevant; this week we meet the first two.
+
+\section{Layering}
+
+\subsection{The tasks, bottom up}
+
+To move data from one application to another, the network has to solve these tasks, from the physical bottom to the top:
+\begin{enumerate}
+  \item electrons (or light, or radio waves) on the wire;
+  \item bits on the wire;
+  \item packets on the wire;
+  \item deliver packets across a \textbf{local} network (a LAN), using \textbf{local addresses};
+  \item deliver packets across \textbf{many} LANs, using \textbf{global addresses};
+  \item make sure the packets get there (for example, handle loss);
+  \item do something useful with the data.
+\end{enumerate}
+
+\begin{defn}[Layering]
+\term{Layering} organizes the tasks into a stack of \term{layers}. It is a particularly \textbf{strict form of modularity}:
+each layer interacts \hl{only with the layer directly above it and the layer directly below it}. A layer uses the service of the layer below and
+offers a service to the layer above.
+\end{defn}
+
+\subsection{Layering in the real world: the CEO's letter}
+
+\begin{example}[A letter between two companies]
+\begin{enumerate}
+  \item CEO A writes a letter to CEO B, folds it and hands it to an administrative aide.
+  \item The aide puts the letter in an envelope with CEO B's name on it and takes it to FedEx.
+  \item The FedEx office puts the envelope in a larger FedEx envelope, writes the company's name and street address on it, and puts it on a truck.
+  \item FedEx delivers it to company B. There, the FedEx envelope is opened, the aide reads the name and passes the inner envelope to CEO B, and CEO B reads the letter.
+\end{enumerate}
+\end{example}
+
+\begin{center}
+\begin{tikzpicture}[x=1cm,y=1cm,
+  who/.style={blk,minimum width=1.8cm},
+  pkg/.style={font=\sffamily\scriptsize\bfseries,align=center}]
+  \node[who] (c1) at (0,3) {CEO};   \node[who] (c2) at (9,3) {CEO};
+  \node[who] (a1) at (0,1.7) {Aide};  \node[who] (a2) at (9,1.7) {Aide};
+  \node[who] (f1) at (0,0.4) {FedEx}; \node[who] (f2) at (9,0.4) {FedEx};
+  \draw[arr] (c1)--(a1); \draw[arr] (a1)--(f1);
+  \draw[arr] (f2)--(a2); \draw[arr] (a2)--(c2);
+  \draw[arr,ppink,line width=1.6pt] (f1.east)--(f2.west);
+  \draw[densely dashed,muted] (c1.east)--(c2.west) node[pkg,midway,above,text=pgreen] {Letter: \emph{content} (semantics)};
+  \draw[densely dashed,muted] (a1.east)--(a2.west) node[pkg,midway,above,text=pcyan] {Envelope: \emph{identity} (name)};
+  \node[pkg,text=ppink,above] at (4.5,0.45) {FedEx envelope: \emph{location} (street address)};
+  \node[pkg,text=muted,below] at (4.5,0.35) {the only thing that physically travels};
+\end{tikzpicture}
+\figcap{The path of the letter (slide 10). Each dashed line joins two \emph{peers} that understand the same thing. The real movement goes down
+on the left, across at the bottom, and up on the right.}
+\end{center}
+
+\begin{intuition}[Three lessons of the letter]
+\begin{itemize}
+  \item \textbf{Peers understand the same things, and no one else does.} The FedEx driver never reads the letter; the CEO never reads the street address.
+  \item \textbf{Each layer adds its own wrapping}, so the lowest layer carries the most packaging.
+  \item \textbf{Each layer only talks to its neighbours}: the CEO deals with the aide, never with the truck.
+\end{itemize}
+\end{intuition}
+
+\subsection{The resulting five layers}
+
+Each task becomes a layer. Two tasks are folded into the layer above them.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{>{\columncolor{border}}l L{4.2cm} L{5.6cm}}
+\thd{LAYER} & \cellcolor{border}\thd{TASK} & \cellcolor{border}\thd{WHAT IT IS ABOUT}\\
+\rowcolor{surface} \cellcolor{border}\color{surface}5 Application & do something with the data & web, e-mail, video, games\\
+\rowcolor{surface2} \cellcolor{border}\color{surface}4 Transport & ensure the packets get there & between \emph{processes}; reliability\\
+\rowcolor{surface} \cellcolor{border}\color{surface}3 Network & deliver across many LANs & \textbf{global} addresses; routing\\
+\rowcolor{surface2} \cellcolor{border}\color{surface}2 (Data) Link & deliver across one LAN (incl.\ packets on wire) & \textbf{local} addresses; sharing the medium\\
+\rowcolor{surface} \cellcolor{border}\color{surface}1 Physical & bits on the wire (incl.\ electrons) & voltages, light, radio\\
+\end{tabular}
+\end{center}
+
+\begin{intuition}[A mnemonic for the five]
+Read from the bottom: \textbf{P}hysical, \textbf{L}ink, \textbf{N}etwork, \textbf{T}ransport, \textbf{A}pplication. Each layer answers one question:
+\emph{how is a bit sent? to which neighbour? to which machine in the world? to which program on it? and what does the program do with it?}
+\end{intuition}
+
+\subsection{Who implements which layers?}
+
+\slidefig{0.62\linewidth}{layers_physical}
+\figcap{Slides 13--15. Host A and Host B implement all five layers; the router in the middle implements only the bottom three. The blue line is the
+\emph{physical} path of the data: down Host A's stack, across the wire, up to the router's network layer, down again, and up Host B's stack.}
+
+\begin{formula}[The top two layers live only at the hosts]
+Routers implement \textbf{physical, link and network}. \textbf{Transport and application are implemented only at the end hosts}.
+Inside the network, nobody looks at the transport or application data. (This is the answer to the second design question of \S1.1: \emph{where} each module is implemented.)
+\end{formula}
+
+\begin{defn}[Logical vs.\ physical communication]
+\begin{itemize}
+  \item \term{Logical communication}: each layer behaves as if it talks directly to its \term{peer}, the same layer on the other machine.
+        Host A's transport layer ``talks to'' Host B's transport layer. The router's network layer ``talks to'' both hosts' network layers.
+  \item \term{Physical communication}: the bits really go \emph{down} to the physical layer, travel peer to peer across each link, and go back \emph{up} to the relevant layer.
+\end{itemize}
+\end{defn}
+
+\section{Protocols}
+
+\begin{defn}[Protocol]
+A \term{protocol} is an \textbf{agreement on how to communicate}: to exchange data, and to coordinate the sharing of resources. A protocol specifies:
+\begin{itemize}
+  \item its \term{syntax}: how the protocol is structured, meaning the format of the messages and the order in which they are sent and received;
+  \item its \term{semantics}: what the bits mean, meaning how to respond to each message or event.
+\end{itemize}
+\end{defn}
+
+\begin{example}[Protocols in life]
+\begin{itemize}
+  \item \textbf{Asking a question in class}: raise a hand, wait to be called on, then speak.
+  \item \textbf{Turn-taking in conversation}: a pause is the signal that the next person may respond.
+  \item \textbf{Boarding and leaving an airplane}: by rows or zones. Not all countries use the same protocol!
+  \item \textbf{Answering the phone}: you say ``hello'' as the signal for the caller to talk; the caller identifies themselves, and then the conversation starts.
+\end{itemize}
+Each one has syntax (what is said, in what order) and semantics (what each signal means and what to do next).
+\end{example}
+
+\begin{example}[HTTP, an application-layer protocol]
+A browser asks a web server for a page. The request (syntax: a method, a path, a version, then header lines, then an empty line):
+\begin{center}\begin{minipage}{0.8\linewidth}\ttfamily\footnotesize
+GET /courses/archive/spring06/cos461/ HTTP/1.1\\
+Host: www.cs.princeton.edu\\
+User-Agent: Mozilla/4.03\\
+\textit{(empty line)}
+\end{minipage}\end{center}
+The response (semantics: \texttt{200 OK} means ``here it is''):
+\begin{center}\begin{minipage}{0.8\linewidth}\ttfamily\footnotesize
+HTTP/1.1 200 OK\\
+Date: Mon, 6 Feb 2006 13:09:03 GMT\\
+Server: Netscape-Enterprise/3.5.1\\
+Last-Modified: Mon, 6 Feb 2006 11:12:23 GMT\\
+Content-Length: 21\\
+\textit{(empty line)}\\
+Site under construction
+\end{minipage}\end{center}
+\texttt{Content-Length: 21} tells the browser exactly how many bytes of body to read: ``Site under construction'' is 23 characters, so the slide's
+example is slightly off, but the idea is that the header announces the length.
+\end{example}
+
+\begin{example}[IP, a network-layer protocol]
+Lower layers use binary formats with fixed-size fields. The IP packet header:
+\slidefig{0.62\linewidth}{ip_header}
+\figcap{Slide 20. Each row is 32 bits. Without options the header is 5 rows $=20$ bytes. The fields you need now: \emph{Version} (4 for IPv4),
+\emph{Total Length}, \emph{Time to Live} (decremented by each router; the packet is dropped at 0), \emph{Protocol} (which transport protocol is inside, e.g.\ TCP),
+and the 32-bit \emph{source} and \emph{destination} addresses.}
+\end{example}
+
+\subsection{Standardization}
+
+\begin{intuition}[Why standards]
+Everyone must follow the same protocol. Very small changes can make a big difference, or stop communication altogether: if one side thinks the
+length field is 16 bits and the other 32, nothing works. Hence \textbf{standards}. A standard fixes the protocol, \emph{not} the code, so there can be many
+independent implementations (Windows, Linux and macOS each have their own TCP).
+\end{intuition}
+
+\begin{defn}[IETF and RFCs]
+The \term{Internet Engineering Task Force} (IETF, \texttt{ietf.org}) writes the Internet's standards. It works in \emph{working groups} focused on specific
+issues, and publishes its documents as numbered \term{Requests For Comments} (RFCs), archived at \texttt{rfc-editor.org}. (Link-layer standards such as Ethernet and WiFi come from the IEEE 802 committees.)
+\end{defn}
+
+\subsection{The Internet protocol suite, end to end}
+
+\slidefig{0.82\linewidth}{ip_suite}
+\figcap{Slide 22. Each layer's unit of data has its own name: the application sends an \emph{HTTP message}, the transport layer a \emph{TCP segment},
+the network layer an \emph{IP packet} (datagram), and the link layer a \emph{frame}. The two routers process only IP and below. Notice that the link changes along the way: Ethernet, then SONET, then Ethernet again. IP runs over all of them.}
+
+\subsection{Encapsulation}
+
+\begin{defn}[Encapsulation]
+Going down the stack, each layer takes what it received from above as its \emph{payload} and adds its own \emph{header} in front.
+This is \term{encapsulation}. Going up the stack at the receiver, each layer removes its own header and passes the payload up (\term{decapsulation}).
+\end{defn}
+
+\slidefig{0.72\linewidth}{encapsulation}
+\figcap{Slide 23. User A's request ``Get index.html'' (green) gets a transport header (connection ID), then a network header (source and destination
+addresses), then a link header (local source and destination). At User B the headers are removed in the opposite order.}
+
+\textbf{Step by step for one web request} \src{KR 1.5.2}:
+\begin{enumerate}
+  \item The application builds the HTTP message $M$.
+  \item Transport adds a header $H_t$ (which process on which host): segment $=H_t\,M$.
+  \item Network adds $H_n$ (global source and destination addresses): datagram $=H_n\,H_t\,M$.
+  \item Link adds $H_l$ (local source and destination on this LAN): frame $=H_l\,H_n\,H_t\,M$.
+  \item The physical layer sends the bits. Each router strips $H_l$, reads $H_n$, and wraps the datagram in a \emph{new} link header for the next link.
+\end{enumerate}
+
+\begin{example}[How much is overhead?]
+Common case: 20 bytes TCP $+$ 20 bytes IP $+$ 14 bytes Ethernet $=$ \hl{54 bytes of headers}.
+\begin{itemize}
+  \item A full frame with 1460 bytes of data: $1460/(1460+54)=96.4\%$ of the bytes are useful.
+  \item A single typed keystroke (1 byte of data, e.g.\ in a remote shell): $1/55=1.8\%$ useful. Mice pay heavily for headers.
+\end{itemize}
+\end{example}
+
+\begin{pitfall}[54 bytes counts headers only]
+The 54 bytes are the three \emph{headers}. On the wire, Ethernet also adds a 4-byte CRC \emph{trailer} after the data (and an 8-byte preamble before the frame) \src{KR 6.4.2}.
+So the real per-frame overhead is a bit larger.
+\end{pitfall}
+
+\section{Characterizing the layers}
+
+\begin{defn}[Service, interface, protocol (OSI terms)]
+Every layer is described by three things:
+\begin{itemize}
+  \item its \term{service}: \emph{what} the layer does for the layer above;
+  \item its \term{service interface}: \emph{how} the layer above accesses the service;
+  \item its \term{protocol}: how the \emph{peers} on different machines communicate to provide the service. The protocol governs what happens
+        \emph{between} machines, not how the layer is coded on one machine.
+\end{itemize}
+A layer can have \textbf{many implementations}, and this is what allows innovation.
+\end{defn}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabular}{>{\columncolor{border}}l L{3.6cm} L{3.4cm} L{3.4cm}}
+\thd{LAYER} & \cellcolor{border}\thd{SERVICE} & \cellcolor{border}\thd{PROTOCOLS DO} & \cellcolor{border}\thd{EXAMPLES}\\
+\rowcolor{surface} \cellcolor{border}\color{surface}1 Physical & move bits between two systems on \emph{one} physical link & coding of bits: voltage levels, bit duration & optical, wireless (not our focus)\\
+\rowcolor{surface2} \cellcolor{border}\color{surface}2 Link & exchange \term{frames} with hosts on the same LAN, using local addresses & \term{Media Access Control} (MAC) & Ethernet, 802.11, Frame Relay, ATM\\
+\rowcolor{surface} \cellcolor{border}\color{surface}3 Network & deliver packets to any destination, across many layer-2 networks, using global addresses & routing & IP (only!)\\
+\rowcolor{surface2} \cellcolor{border}\color{surface}4 Transport & communication between \emph{processes}; perhaps reliability, rate adaptation & reliability, flow control, splitting large messages & TCP, UDP\\
+\rowcolor{surface} \cellcolor{border}\color{surface}5 Application & any service to the end user & depends on the application & HTTP, SMTP, Skype, BitTorrent\\
+\end{tabular}
+\end{center}
+
+\begin{itemize}
+  \item \textbf{Link interface}: ``send this frame to that local host''; ``deliver to me the frames addressed to me''. The link layer is not limited to a single wire: a LAN may have many hosts.
+  \item \textbf{Network interface}: ``send this packet to that global destination''; ``deliver to me the packets for this host''. ``Inter-network'' means across \emph{different} layer-2 networks, e.g.\ from Ethernet to 802.11.
+  \item \textbf{Transport interface}: ``send this message to that process on that host''; a local process receives the messages sent to it.
+        \term{Multiplexing} here means that many processes on one host share the host's network connection.
+\end{itemize}
+
+\subsection{The narrow waist}
+
+\slidefig{0.6\linewidth}{hourglass}
+\figcap{The Internet hourglass (slide 30). Many applications at the top, many link and physical technologies at the bottom, and exactly one protocol in the middle: IP.}
+
+\begin{intuition}[Why only one network-layer protocol]
+The slide asks: ``IP: why no other examples?'' Because \textbf{IP is the narrow waist}. Every application runs over IP, and IP runs over every link technology.
+\begin{itemize}
+  \item A new application (top) only has to work with IP, and it runs on every network.
+  \item A new link technology (bottom) only has to carry IP, and every application works over it.
+\end{itemize}
+With $A$ applications and $L$ link technologies, a single waist needs $A+L$ adaptations instead of $A\times L$. With 100 applications and 20 links: 120 instead of 2000.
+The narrow waist is what makes \hl{interoperability} possible. The price: changing IP itself is extremely hard (IPv6 has been ``coming'' for decades).
+\end{intuition}
+
+\begin{pitfall}[``Waste'' vs.\ ``waist'']
+Slide 30's title says ``The Narrow \emph{Waste} of the Internet''. The word is \textbf{waist}, as in the narrow middle of an hourglass, which is what the figure shows.
+\end{pitfall}
+
+\section{Building the Internet bottom up: the link layer}
+
+The course now builds the Internet from the bottom. \textbf{Challenge I: communicating within a LAN.} For now we look only at the physical and link layers
+(the physical layer itself is not the focus of the course). Transport and network come later; the link layer is needed to interconnect LANs.
+
+\subsection{Terminology}
+
+\begin{defn}[Node, link, frame]
+\begin{itemize}
+  \item \term{Nodes}: end hosts \emph{and} relays (routers, switches): anything that runs a link layer.
+  \item \term{Links}: the communication channels that connect \emph{adjacent} nodes along the path. They can be wired, wireless, or logical (a broadcast domain).
+  \item \term{Frame}: the layer-2 packet. It \emph{encapsulates} a network-layer datagram.
+\end{itemize}
+The \textbf{data-link layer} is responsible for transferring a datagram from one node to an \emph{adjacent} node over one link.
+\end{defn}
+
+\begin{example}[The trip from Honolulu to Jerusalem \src{KR 6.1}]
+A taxi from Honolulu to HNL airport, a plane to Newark (EWR), a plane to Tel Aviv (TLV), a train to Jerusalem.
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{>{\columncolor{border}}l l}
+\thd{TRAVEL} & \cellcolor{border}\thd{NETWORK}\\
+\rowcolor{surface} \cellcolor{border}\color{surface}passenger & datagram\\
+\rowcolor{surface2} \cellcolor{border}\color{surface}each segment of the trip & one link\\
+\rowcolor{surface} \cellcolor{border}\color{surface}transportation mode (taxi, plane, train) & link-layer protocol\\
+\rowcolor{surface2} \cellcolor{border}\color{surface}travel agent who plans the route & routing algorithm\\
+\end{tabular}
+\end{center}
+The datagram crosses different links with \emph{different} link protocols (Ethernet on the first link, 802.11 on the next), and each one provides different
+services. A taxi does not promise what a plane does, and some links are reliable while others are not.
+\end{example}
+
+\subsection{Services of a single link}
+
+\begin{itemize}
+  \item \textbf{Link access and addressing.} When the channel is a shared medium, someone must decide who sends. \term{MAC addresses} in the frame header
+        identify the source and the destination. \hl{They are different from IP addresses} (\S\ref{sec:mac}).
+  \item \textbf{Reliable delivery between adjacent nodes} (error detection and correction, retransmissions). It is seldom used on low-bit-error links (fibre, some twisted pair), but needed on wireless links, which have high error rates. This is revisited later in the course.
+  \item ``\dots?'': the slide leaves the list open. \src{KR 6.1.1} also lists \emph{framing} (wrapping the datagram) and \emph{error detection} as separate services.
+\end{itemize}
+
+\subsection{Where is the link layer implemented?}
+
+\slidefig{0.5\linewidth}{nic}
+\figcap{Slide 39. Inside a host, application, transport and network run in software on the CPU. Link and physical are in the \emph{network adapter}.}
+
+\begin{defn}[Network interface card (NIC)]
+The link layer runs \textbf{in every host}, in an \term{adapter}, also called a \term{network interface card} (NIC): e.g.\ an Ethernet card or an 802.11 card.
+The NIC implements the link and physical layers. It attaches to the host's system bus and is a combination of hardware, software and firmware.
+\end{defn}
+
+\begin{formula}[Adapters communicating]
+\begin{itemize}
+  \item \textbf{Sending side}: encapsulates the datagram in a frame and adds error-checking bits (and, if used, reliable-delivery machinery).
+  \item \textbf{Receiving side}: checks for errors, extracts the datagram and passes it up to the network layer.
+\end{itemize}
+\end{formula}
+
+\section{The multiple access problem}
+
+\begin{defn}[Broadcast channel and collision]
+On a \term{single shared broadcast channel}, every frame sent by one node is received by all the others. If a node receives two or more signals at the
+same time, there is a \term{collision}: the signals are tangled together and \hl{all the colliding frames are lost}, and the channel was wasted during the collision \src{KR 6.3}.
+\end{defn}
+
+\begin{defn}[Multiple access protocol]
+A \term{multiple access protocol} (MAC protocol) is a \textbf{distributed algorithm} that determines how the nodes share the channel, i.e.\ \emph{when} each node may transmit.
+The catch: the communication about how to share the channel \hl{must use the channel itself}. There is no separate ``out-of-band'' channel for coordination.
+\end{defn}
+
+\subsection{Broadcast domains: wired}
+
+\slidefig{0.55\linewidth}{bus_star}
+\figcap{Slides 42, 96. Left: a \emph{bus}, one coaxial cable shared by every node. Right: a \emph{star}, every node on its own cable to a switch.}
+
+\begin{itemize}
+  \item \textbf{Bus} (popular until the mid-1990s): all nodes are in the same \term{collision domain}: any two of them can collide.
+  \item \textbf{Star} (today): an \emph{active switch} sits in the centre. Each node runs a separate Ethernet with the switch, so \hl{nodes do not collide with each other}. Switches come later in the course.
+\end{itemize}
+
+\begin{pitfall}[Collision domain vs.\ broadcast domain]
+Slide 42 says the bus nodes are in the same ``collision domain''; slide 96, the same slide repeated, says ``broadcast domain''. On a bus the two coincide, so both are true.
+In general they are different things: a \emph{collision domain} is the set of nodes whose transmissions can collide; a \emph{broadcast domain} is the set
+of nodes that receive a broadcast frame. The switched star still has one broadcast domain, but each cable is its own collision domain.
+\end{pitfall}
+
+\subsection{Broadcast domains: wireless}
+
+\slidefig{0.62\linewidth}{wireless_hidden}
+\figcap{Slide 43. Left: A and C are separated by a mountain; both reach B, but they cannot hear each other. Right: A's signal (red) fades with distance;
+so does C's (blue). At B both are strong enough; at A, C's signal is too weak to sense, and vice versa.}
+
+\begin{defn}[Hidden terminal and fading \src{KR 7.2}]
+In wireless, ``everyone hears everyone'' is not true.
+\begin{itemize}
+  \item \term{Hidden terminal problem}: A and C both reach B, but an obstacle hides them from each other. Neither can tell that the other is transmitting, so they collide at B.
+  \item \term{Fading}: signal strength decreases with distance. Even without an obstacle, A and C may be too far apart to hear each other, although B, in the middle, hears both.
+\end{itemize}
+\end{defn}
+
+\subsection{The ideal multiple access protocol}
+
+\begin{formula}[Wish list for a broadcast channel of rate $R$ bit/s]
+\begin{enumerate}
+  \item When \textbf{one} node wants to transmit, it can send at rate $R$.
+  \item When $M$ nodes want to transmit, each can send at \textbf{average} rate $R/M$.
+  \item \textbf{Fully decentralized}: no special node coordinates (no single point of failure).
+  \item \textbf{No synchronization} of clocks or slots.
+  \item \textbf{Simple}.
+\end{enumerate}
+\end{formula}
+
+Keep this list in mind: every protocol below is scored against it in \S\ref{sec:scorecard}.
+
+\subsection{A taxonomy of MAC protocols}
+
+\begin{center}
+\begin{tikzpicture}[level distance=1.45cm,
+  level 1/.style={sibling distance=7cm},
+  level 2/.style={sibling distance=3.5cm},
+  every node/.style={blk,text width=2.9cm}]
+\node[text width=3.4cm] {MAC protocols}
+  child {node {Coordinated access}
+    child {node {Channel partitioning\\(TDMA, FDMA)}}
+    child {node {Taking turns\\(polling, token)}}}
+  child {node {Random access}
+    child {node {ALOHA, slotted ALOHA}}
+    child {node {CSMA, CSMA/CD, CSMA/CA}}};
+\end{tikzpicture}
+\figcap{The lecture's two broad classes (slides 45, 89, 103).}
+\end{center}
+
+\begin{itemize}
+  \item \term{Channel partitioning}: divide the channel into smaller ``pieces'' (time slots or frequencies) and give each node a piece for its exclusive use.
+  \item \term{Taking turns}: nodes take turns, but nodes with more to send can take longer turns.
+  \item \term{Random access}: the channel is not divided. Collisions are allowed, and the protocol \emph{recovers} from them.
+\end{itemize}
+
+\begin{pitfall}[Is channel partitioning ``centralized''?]
+The slides group channel partitioning under ``Centralized Coordination''. Once the slots or bands are assigned, TDMA and FDMA need \emph{no} coordinator at run time:
+every node simply uses its own piece. What they need is an \emph{agreement made in advance}. Only some taking-turns protocols (polling) have a real central master.
+That is why \src{KR 6.3} lists \textbf{three} classes side by side: channel partitioning, random access and taking turns. Also, slide 103 writes ``time/frequency
+\emph{modulation}''. It should be time/frequency \textbf{division} (multiplexing). Modulation is how bits are put on a signal, a physical-layer matter.
+\end{pitfall}
+
+\section{Channel partitioning: TDMA and FDMA}
+
+\begin{defn}[TDMA: time division multiple access]
+Access to the channel goes in \textbf{rounds} (frames). Each station gets a fixed-length slot in every round; the slot length is one packet transmission time.
+\hl{Unused slots go idle.}
+\end{defn}
+
+\begin{center}
+\begin{tikzpicture}[x=0.62cm,y=1cm]
+  \foreach \r in {0,6} {
+    \foreach \s in {1,...,6} {
+      \pgfmathtruncatemacro{\x}{\r+\s-1}
+      \draw[ink,line width=0.8pt] (\x,0) rectangle (\x+1,0.7);
+      \node[font=\ttfamily\tiny,text=muted] at (\x+0.5,-0.25) {\s};
+    }
+    \draw[decorate,decoration={brace,amplitude=5pt},thick,border] (\r,0.85)--(\r+6,0.85) node[midway,above=5pt,font=\scriptsize] {6-slot frame};
+  }
+  \foreach \x/\c in {0/pcyan,2/ppink,3/pgreen,6/pcyan,8/ppink,9/pgreen}
+    \fill[\c!75] (\x+0.05,0.05) rectangle (\x+0.95,0.65);
+  \draw[arr] (0,-0.55)--(12.6,-0.55) node[right,font=\scriptsize] {time};
+\end{tikzpicture}
+\figcap{Slide 46's example: a 6-station LAN in which stations 1, 3 and 4 have packets. Slots 2, 5 and 6 stay idle in every frame, even though 1, 3 and 4 have more to send.}
+\end{center}
+
+\begin{defn}[FDMA: frequency division multiple access]
+The channel's spectrum is divided into frequency bands, and each station is assigned a fixed band. Unused transmission time in a band goes idle.
+\end{defn}
+
+\slidefig{0.5\linewidth}{fdma}
+\figcap{Slide 47. One FDM cable carries six bands. Stations 1, 3, 4 send in their bands; bands 2, 5, 6 are idle.}
+
+\begin{example}[The cost of partitioning, with numbers \src{KR 6.3.1}]
+A channel of $R=60$\,Mbps shared by $N=6$ stations: each one gets exactly $R/N=10$\,Mbps.
+\begin{itemize}
+  \item 6 stations busy: each gets 10\,Mbps $=R/M$. Property 2 is met perfectly, and there are no collisions.
+  \item Only station 1 busy: it still gets only 10\,Mbps, and \hl{50\,Mbps are wasted}. Property 1 fails.
+  \item Even when alone, a TDMA station must wait for its own slot: on average half a frame of delay before each packet.
+\end{itemize}
+Like a pan of Kaiserschmarrn torn into six fixed portions before the guests arrive: if only one guest is hungry, they still get one sixth, and the rest goes cold.
+\end{example}
+
+\section{Random access protocols}
+
+\begin{defn}[Random access]
+When a node has a packet to send, it transmits at the \textbf{full channel rate} $R$, with no prior coordination among the nodes.
+If two or more nodes transmit, there is a \term{collision}. A random access MAC protocol specifies:
+\begin{itemize}
+  \item how to \textbf{detect} collisions;
+  \item how to \textbf{recover} from them, e.g.\ by delayed retransmission.
+\end{itemize}
+Examples: slotted ALOHA, (pure) ALOHA, CSMA, CSMA/CD, CSMA/CA.
+\end{defn}
+
+\begin{intuition}[Why the delay must be random]
+If two colliding nodes both waited the \emph{same} fixed time and tried again, they would collide again, forever. Each node chooses its delay
+\emph{independently at random}, so with luck one of them goes first and gets through \src{KR 6.3.2}.
+\end{intuition}
+
+\section{Probability toolkit (recap of slides 49--67)}
+
+The lecture now pauses for ``Probability 101'': sample spaces, events, probability functions, conditional probability, Bayes, random variables,
+expectation, the four discrete distributions, and Examples I--III. \textbf{Week 01 Part B covers all of these in full}, including Example II (good and bad packets)
+and Example III (the chain of links). Here are only the facts that the MAC analysis below uses.
+
+\begin{formula}[What we need]
+\begin{itemize}
+  \item \textbf{Independent events multiply}: $P(A\cap B)=P(A)P(B)$. So ``$N-1$ independent nodes all stay silent, each with probability $1-p$'' has probability $(1-p)^{N-1}$.
+  \item \textbf{Disjoint events add}: $P(A\cup B)=P(A)+P(B)$.
+  \item \textbf{Exactly one success among $N$}: $\binom N1p(1-p)^{N-1}=Np(1-p)^{N-1}$, the binomial probability $P(X=1)$ for $X\sim\text{Bin}(N,p)$.
+  \item \textbf{Geometric}: if each try succeeds with probability $q$, the number of tries is $\text{Geo}(q)$, with mean $1/q$. The expected number of \emph{failures} before the success is $1/q-1=(1-q)/q$.
+\end{itemize}
+\end{formula}
+
+\begin{example}[Example I from the slides: 50 components]
+Communication uses 50 components, each working 99\% of the time (independently). Failure probability $=1-0.99^{50}\approx39.5\%$.
+With 99.9\%: $1-0.999^{50}\approx4.9\%$. \hl{The system must be designed to expect failure.}
+\end{example}
+
+\begin{pitfall}[Slide 67: ``the probability to success drops to $(1-p)$'']
+In Example III (Week 01, Question 3) the success probability goes from $(1-p)^n$ to $(1-p)$. Since $1-p>(1-p)^n$ for $n\ge2$, it \textbf{rises}, not ``drops''.
+Also, the slide's $\E X=1/(1-p)$ counts the sends needed to cross \emph{one} hop. Crossing all $n$ hops hop by hop takes $n/(1-p)$ link transmissions on average.
+\end{pitfall}
+
+\subsection{The new tool: $(1-1/N)^{N}\to 1/e$}
+
+The efficiency of ALOHA ends with ``take the limit as $N\to\infty$''. This is the limit it needs.
+
+\begin{formula}[A famous limit]
+\[ \lim_{N\to\infty}\Big(1-\frac1N\Big)^{N}=\frac1e\approx0.368, \qquad\text{and therefore also}\qquad \lim_{N\to\infty}\Big(1-\frac1N\Big)^{N-1}=\frac1e. \]
+(The second follows from the first: $(1-\frac1N)^{N-1}=(1-\frac1N)^{N}\big/(1-\frac1N)$, and the denominator tends to 1.)
+\end{formula}
+
+\begin{example}[See it converge]
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{>{\columncolor{border}}c c c}
+\thd{$N$} & \cellcolor{border}\thd{$(1-1/N)^{N}$} & \cellcolor{border}\thd{$(1-1/N)^{N-1}$}\\
+\rowcolor{surface} \cellcolor{border}\color{surface}2 & 0.250 & 0.500\\
+\rowcolor{surface2} \cellcolor{border}\color{surface}5 & 0.328 & 0.410\\
+\rowcolor{surface} \cellcolor{border}\color{surface}10 & 0.349 & 0.387\\
+\rowcolor{surface2} \cellcolor{border}\color{surface}100 & 0.366 & 0.370\\
+\rowcolor{surface} \cellcolor{border}\color{surface}$\infty$ & 0.368 & 0.368\\
+\end{tabular}
+\end{center}
+Why it is true, in words: $\ln(1-x)\approx-x$ for small $x$, so $N\ln(1-\frac1N)\approx N\cdot(-\frac1N)=-1$, and $(1-\frac1N)^N\approx e^{-1}$.
+In probability terms: if each of $N$ nodes stays silent with probability $1-\frac1N$, then the chance that \emph{all} stay silent tends to $1/e$. It is the Poisson probability $P(X=0)$ for mean $1$.
+\end{example}
+
+\section{Slotted ALOHA}
+
+\begin{defn}[Slotted ALOHA]
+\textbf{Assumptions}: all frames have the same size; time is divided into equal slots, each the time to transmit one frame; nodes start transmitting
+only at the beginning of a slot; nodes are synchronized; if two or more nodes transmit in a slot, all nodes detect the collision.
+
+\textbf{Operation}:
+\begin{enumerate}
+  \item When a node gets a fresh frame, it transmits in the next slot.
+  \item No collision: success; the node may send a new frame in the next slot.
+  \item Collision: the node retransmits the frame in \emph{each subsequent slot with probability $p$}, until it succeeds.
+\end{enumerate}
+``With probability $p$'': before each slot the node tosses a biased coin, and transmits on heads (probability $p$).
+\end{defn}
+
+\begin{center}
+\begin{tikzpicture}[x=0.95cm,y=0.6cm]
+  \foreach \i/\l in {1/C,2/E,3/C,4/S,5/E,6/C,7/E,8/S,9/S} {
+    \draw[muted,thin] (\i-1,0) -- (\i-1,3.3);
+    \node[font=\sffamily\scriptsize\bfseries,text=ppink] at (\i-0.5,-0.5) {\l};
+  }
+  \draw[muted,thin] (9,0)--(9,3.3);
+  \foreach \y/\n in {2.6/1,1.6/2,0.6/3} \node[font=\scriptsize,anchor=east] at (-0.1,\y) {Node \n};
+  \foreach \x/\y/\c in {0/2.6/pcyan,0/1.6/pgreen,0/0.6/pgold, 2/2.6/pcyan,2/1.6/pgreen, 3/1.6/pgreen, 5/2.6/pcyan,5/0.6/pgold, 7/2.6/pcyan, 8/0.6/pgold}
+    \fill[\c!70,draw=ink] (\x+0.1,\y-0.3) rectangle (\x+0.9,\y+0.3);
+  \draw[arr] (0,-1.1)--(9.4,-1.1) node[right,font=\scriptsize] {time};
+\end{tikzpicture}
+\figcap{Slotted ALOHA in action \src{KR Fig.\ 6.10}. C = collision, E = empty, S = success. All three nodes collide in slot 1. Node 2 succeeds in slot 4, node 1 in slot 8 and node 3 in slot 9.}
+\end{center}
+
+\textbf{Pros}: a single active node can transmit continuously at the full rate $R$; highly decentralized (only the slot times must be in sync); simple.\\
+\textbf{Cons}: collisions waste slots; idle slots are wasted too; a node may detect a collision long before the slot ends but still wastes the whole slot; it needs clock synchronization.
+
+\subsection{Goodput vs.\ throughput}
+
+\begin{defn}[Goodput and throughput]
+Consider many nodes, all with many frames to send.
+\begin{itemize}
+  \item \term{Goodput} (also \term{efficiency}): the long-run fraction of \emph{successful} slots.
+  \item \term{Throughput}: the long-run fraction of slots in which there was a transmission, successful or not.
+\end{itemize}
+Throughput counts collisions as ``busy''; goodput counts only useful work. A channel full of collisions has high throughput and zero goodput.
+\end{defn}
+
+\subsection{The goodput of slotted ALOHA, step by step}
+
+\textbf{Simplified model.} $N$ nodes, each always has a frame, and in each slot \emph{each} node transmits with probability $p$, independently
+(this treats fresh frames and retransmissions alike).
+
+\begin{enumerate}
+  \item \textbf{A given node succeeds} in a slot iff it transmits \emph{and} the other $N-1$ do not. By independence:
+        \[ P(\text{node $i$ succeeds})=p\,(1-p)^{N-1}. \]
+  \item \textbf{Some node succeeds}: the events ``node $i$ succeeds'' for $i=1,\dots,N$ are \emph{disjoint} (two nodes cannot both succeed in one slot), so we add:
+        \[ \alpha(p)=N\,p\,(1-p)^{N-1}. \]
+  \item \textbf{Best $p$}: differentiate and set to zero (slide 84):
+        \[ \frac{d\alpha}{dp}=N(1-p)^{N-1}-pN(N-1)(1-p)^{N-2}=N(1-p)^{N-2}\big[(1-p)-(N-1)p\big]=0 \;\Rightarrow\; p^*=\frac1N. \]
+        Makes sense: on average exactly one node transmits per slot.
+  \item \textbf{Best goodput}: $\alpha(p^*)=N\cdot\frac1N\big(1-\frac1N\big)^{N-1}=\big(1-\frac1N\big)^{N-1}$.
+  \item \textbf{Many nodes}: by the limit above, $\alpha_{\max}\to\dfrac1e\approx0.37$.
+\end{enumerate}
+
+\begin{pitfall}[Slide 73: ``approx.'' $Np(1-p)^{N-1}$]
+The slide calls $Np(1-p)^{N-1}$ ``approximately'' the probability that some node succeeds. Within the model it is \textbf{exact}: the $N$ success events are
+disjoint, so their probabilities add with no approximation. The approximation comes only in the last step, when $(1-\frac1N)^{N-1}$ is replaced by its limit $1/e$.
+\end{pitfall}
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[width=0.72\linewidth,height=5.4cm,xmin=0,xmax=0.6,ymin=0,ymax=0.55,
+  xlabel={$p$},ylabel={goodput $\alpha(p)$},axis lines=left,
+  tick label style={font=\scriptsize},label style={font=\small},
+  legend style={font=\scriptsize,draw=border,fill=surface},legend pos=north east]
+  \addplot[pcyan,thick,domain=0:0.6,samples=120] {2*x*(1-x)};
+  \addplot[ppink,thick,domain=0:0.6,samples=120] {5*x*(1-x)^4};
+  \addplot[pgreen,thick,domain=0:0.6,samples=120] {20*x*(1-x)^19};
+  \addplot[pgold,dashed,domain=0:0.6] {0.3679};
+  \legend{$N=2$,$N=5$,$N=20$,$1/e$}
+\end{axis}
+\end{tikzpicture}
+\figcap{Slotted ALOHA goodput as a function of $p$. Each curve peaks at $p=1/N$; the peak heights 0.50, 0.41, 0.38 approach $1/e$.}
+\end{center}
+
+\begin{example}[Where the slots go \src{KR 6.3.2}]
+With many nodes at $p=1/N$: 37\% of slots succeed, 37\% are empty ($(1-\frac1N)^N\to1/e$), and the remaining 26\% are collisions.
+A 100\,Mbps slotted ALOHA LAN with many busy users delivers \hl{less than 37\,Mbps} of useful data.
+\end{example}
+
+\section{Pure (unslotted) ALOHA}
+
+\begin{defn}[Pure ALOHA]
+No slots and no synchronization: simpler. Each host behaves \emph{as if} it ran slotted ALOHA on its \emph{own} slots, sending a frame with probability $p$ in
+each of them. But the other hosts' ``slots'' are not aligned with its own.
+\end{defn}
+
+\slidefig{0.55\linewidth}{pure_aloha}
+\figcap{Slide 74. Node $i$'s frame (yellow) occupies $[t_0,t_0+1]$ (the frame time is the unit of time). A frame started in $[t_0-1,t_0]$ (green) overlaps its start;
+a frame started in $[t_0,t_0+1]$ (purple) overlaps its end.}
+
+\textbf{Step by step.}
+\begin{enumerate}
+  \item The vulnerable period is \textbf{two} frame times, $[t_0-1,t_0+1]$, instead of one.
+  \item $P(\text{node $i$ succeeds})=P(\text{it transmits})\cdot P(\text{no other in }[t_0-1,t_0])\cdot P(\text{no other in }[t_0,t_0+1])=p\,(1-p)^{N-1}(1-p)^{N-1}=p\,(1-p)^{2(N-1)}.$
+  \item Goodput $Np(1-p)^{2(N-1)}$. The best $p$ is $p^*=1/(2N-1)$, and as $N\to\infty$ the maximum tends to $\dfrac1{2e}\approx0.18$.
+\end{enumerate}
+
+\begin{intuition}[Half of slotted ALOHA]
+Pure ALOHA's maximum is exactly half of slotted ALOHA's: $0.18$ vs.\ $0.37$. The vulnerable window is twice as long. That is the price of not synchronizing clocks.
+\end{intuition}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{>{\columncolor{border}}c c c}
+\thd{$N$} & \cellcolor{border}\thd{SLOTTED, $(1-\frac1N)^{N-1}$} & \cellcolor{border}\thd{PURE, at $p^*=\frac1{2N-1}$}\\
+\rowcolor{surface} \cellcolor{border}\color{surface}2 & 0.500 & 0.296\\
+\rowcolor{surface2} \cellcolor{border}\color{surface}5 & 0.410 & 0.216\\
+\rowcolor{surface} \cellcolor{border}\color{surface}20 & 0.377 & 0.191\\
+\rowcolor{surface2} \cellcolor{border}\color{surface}$\infty$ & $1/e=0.368$ & $1/(2e)=0.184$\\
+\end{tabular}
+\end{center}
+
+\section{CSMA: listen before you talk}
+
+\begin{defn}[CSMA (carrier sense multiple access)]
+\begin{itemize}
+  \item If the channel is sensed \textbf{idle}: transmit the entire frame.
+  \item If the channel is sensed \textbf{busy}: defer the transmission.
+\end{itemize}
+Human analogy: \emph{don't interrupt others!} ALOHA, in contrast, is the guest who keeps talking no matter who else is speaking.
+\end{defn}
+
+\subsection{Why CSMA still has collisions}
+
+\slidefig{0.42\linewidth}{csma_collision}
+\figcap{Slide 77, a \term{space-time diagram}: space horizontally (four nodes on a bus), time downwards. B starts at $t_0$; its signal (yellow) spreads in both directions. At $t_1$ B's signal has not yet reached D, so D senses an idle channel and starts too (red). The chequered area is where they collide.}
+
+\begin{formula}[The role of propagation delay]
+Carrier sensing only tells a node what was on the channel \emph{one propagation delay ago}. Two nodes may each sense ``idle'' while the other's signal is
+still on its way. \hl{The longer the propagation delay between nodes, the larger the collision probability.}
+In plain CSMA, when a collision happens, \textbf{the whole frame transmission time is wasted}: B and D both keep transmitting to the end.
+\end{formula}
+
+\section{CSMA/CD: collision detection}
+
+\begin{defn}[CSMA/CD]
+Carrier sensing as in CSMA, plus \term{collision detection}: a node keeps listening while it transmits. Collisions are detected within a short time, and
+the colliding transmissions are \textbf{aborted}, which reduces the waste. Human analogy: the polite conversationalist who stops when someone else starts talking.
+\begin{itemize}
+  \item \textbf{Easy in wired LANs}: compare the signal transmitted with the signal received.
+  \item \textbf{Hard in wireless LANs}: the node's own transmission overwhelms the weak signal it receives from others.
+\end{itemize}
+\end{defn}
+
+\slidefig{0.42\linewidth}{csmacd_detect}
+\figcap{Slide 79: the same scenario with collision detection. B and D each stop shortly after the other's signal arrives. The wasted area is much smaller than in plain CSMA.}
+
+\begin{formula}[The CSMA/CD protocol (slide 80)]
+All hosts transmit and receive on one channel. When a host has a packet to send:
+\begin{enumerate}
+  \item \textbf{Carrier sense}: check that the line is quiet before transmitting.
+  \item \textbf{Collision detection}: detect a collision as soon as possible. If one is detected, stop transmitting, wait a random time, and return to step 1.
+\end{enumerate}
+\end{formula}
+
+\subsection{The worst case: how long until a collision is detected?}
+
+\slidefig{0.78\linewidth}{csmacd_timing}
+\figcap{Slide 81. A and B are at the two ends of the cable, one propagation delay PROP apart.}
+
+\textbf{The events, step by step} ($\varepsilon$ is a tiny time):
+\begin{enumerate}
+  \item $t=0$: A senses idle and starts transmitting.
+  \item $t=\PROP-\varepsilon$: A's first bit has \emph{almost} reached B. B senses the line idle and starts its own packet.
+  \item $t=\PROP$: A's bits reach B. B is receiving while transmitting, so \textbf{B detects the collision} (after only $\varepsilon$).
+  \item B's first bits travel back to A, arriving at $t=2\,\PROP-\varepsilon$. Only now does \textbf{A detect the collision}.
+\end{enumerate}
+
+\begin{formula}[Minimum frame duration (slide 82)]
+To be sure that a packet was sent without collision, a host must be able to detect a collision \textbf{before it finishes transmitting} the packet.
+In the worst case detection takes almost $2\,\PROP$, so
+\[ \TRANSP \;\ge\; 2\cdot\PROP . \]
+If A had already finished at $t<2\,\PROP$, it would wrongly believe the packet had got through.
+\end{formula}
+
+\begin{example}[Why Ethernet waits in units of 512 bits]
+Classic 10\,Mbps Ethernet uses 512 bit times as its basic unit (slide 91). At 10\,Mbps one bit takes $0.1\,\mu$s, so 512 bits take $51.2\,\mu$s.
+A frame of at least 512 bits (64 bytes) therefore lasts at least $51.2\,\mu$s, which covers a round trip $2\,\PROP$ of up to $51.2\,\mu$s. At $2\times10^8$\,m/s
+that is about 5\,km of round trip, so about 2.5\,km of cable end to end (in practice less, because repeaters add delay).
+\end{example}
+
+\subsection{The goodput of CSMA/CD (slides 83--88)}
+
+\begin{defn}[Efficiency $\eta$]
+\[ \eta=\frac{\text{time taken to send data}}{\text{time taken to send data}+\text{overhead}}. \]
+\end{defn}
+
+\textbf{Model.} Time is slotted, and all packets have the same length. A \textbf{slot is $2\,\PROP$}, the longest it can take to detect a collision.
+In each slot, each of $N$ hosts decides to transmit with probability $p$ (first transmissions and retransmissions alike).
+
+\begin{enumerate}
+  \item \textbf{A slot is ``won''} when exactly one host transmits. As in slotted ALOHA,
+        \[ \alpha(p)=\binom N1p(1-p)^{N-1}, \qquad \alpha_{\max}=\Big(1-\tfrac1N\Big)^{N-1}\ \text{at } p=\tfrac1N. \]
+  \item \textbf{Wasted slots.} Let $A$ be the expected number of slots wasted before a packet gets through. In the first slot: with probability $\alpha$ we win and waste $0$;
+        with probability $1-\alpha$ we waste this slot and are back where we started, still expecting $A$ more:
+        \[ A=\alpha\cdot0+(1-\alpha)(1+A)\quad\Rightarrow\quad A=\frac{1-\alpha}{\alpha}. \]
+        This is exactly ``failures before the first success'' of a geometric variable.
+  \item \textbf{With $\alpha=0.4$}: $A=0.6/0.4=1.5$. Coin check (slide 85): a coin with $P(\text{heads})=0.4$ needs on average $1/0.4=2.5$ tosses, i.e.\ 1.5 failures and then 1 success.
+  \item \textbf{Efficiency.} Each packet costs its transmission time plus $A$ wasted slots of $2\,\PROP$:
+        \[ \eta_{\text{CSMA/CD}}=\frac{\TRANSP}{\TRANSP+A\cdot2\,\PROP}=\frac{\TRANSP}{\TRANSP+3\,\PROP}=\frac{1}{1+3a},\qquad a\equiv\frac{\PROP}{\TRANSP}. \]
+  \item \textbf{More precise models and simulation} give $\eta_{\text{CSMA/CD}}\approx\dfrac{1}{1+5a}$.
+\end{enumerate}
+
+\begin{pitfall}[Slide 84: ``$\alpha_{\max}\approx37\%\approx40\%$'']
+37\% and 40\% are not the same number. $\alpha_{\max}=(1-\frac1N)^{N-1}$ is 41\% for $N=5$ and falls to $1/e=37\%$ only as $N\to\infty$. The slides then round to $\alpha=0.4$ to get the neat $A=1.5$.
+With the large-$N$ value $\alpha=1/e$ we get $A=e-1\approx1.72$ and $\eta=1/(1+3.44a)$. The message is the same: the overhead is a small multiple of PROP per packet.
+\end{pitfall}
+
+\begin{intuition}[Everything depends on $a=\PROP/\TRANSP$]
+$a$ compares ``how long it takes to find out about a collision'' with ``how long the useful work lasts''.
+\begin{itemize}
+  \item $a\to0$ (short cable or long frames): $\eta\to1$. A collision is noticed and aborted almost instantly.
+  \item $a$ large (long distances, very fast links, short frames): $\eta$ collapses. This is why CSMA/CD only works in a \emph{local} area.
+\end{itemize}
+\end{intuition}
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[width=0.7\linewidth,height=5cm,xmin=0,xmax=1,ymin=0,ymax=1.02,
+  xlabel={$a=\PROP/\TRANSP$},ylabel={efficiency $\eta$},axis lines=left,
+  tick label style={font=\scriptsize},label style={font=\small},
+  legend style={font=\scriptsize,draw=border,fill=surface},legend pos=north east]
+  \addplot[pcyan,thick,domain=0:1,samples=80] {1/(1+3*x)};
+  \addplot[ppink,thick,domain=0:1,samples=80] {1/(1+5*x)};
+  \addplot[pgold,dashed,domain=0:1] {0.3679};
+  \legend{$1/(1+3a)$ (simple model),$1/(1+5a)$ (simulation),slotted ALOHA $1/e$}
+\end{axis}
+\end{tikzpicture}
+\figcap{CSMA/CD efficiency vs.\ $a$. For a LAN, $a$ is around $0.01$, so $\eta$ is above 90\%, far better than ALOHA's 37\%.}
+\end{center}
+
+\section{Summary of MAC protocols}
+
+\begin{itemize}
+  \item \textbf{Channel partitioning} by time, frequency or code: TDMA, FDMA (and CDMA).
+  \item \textbf{Taking turns}:
+    \begin{itemize}
+      \item \term{polling} from a central site: a master node invites each node in turn to send up to some maximum number of frames;
+      \item \term{token passing}: a special ``token'' frame is passed from node to node, and only the holder may send.
+    \end{itemize}
+    Examples: Bluetooth, FDDI, IBM Token Ring \src{KR 6.3.3}.
+  \item \textbf{Random access}: ALOHA, slotted ALOHA, CSMA, CSMA/CD. Carrier sensing is easy in some technologies (wire) and hard in others (wireless).
+        \hl{CSMA/CD is used in Ethernet; CSMA/CA in 802.11 (WiFi).}
+\end{itemize}
+
+\subsection{Scorecard against the wish list}\label{sec:scorecard}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.25}
+\small
+\begin{tabular}{>{\columncolor{border}}l c c c c c}
+\thd{PROTOCOL} & \cellcolor{border}\thd{1: ALONE $\to R$} & \cellcolor{border}\thd{2: $M$ BUSY $\to R/M$} & \cellcolor{border}\thd{3: DECENTR.} & \cellcolor{border}\thd{4: NO SYNC} & \cellcolor{border}\thd{5: SIMPLE}\\
+\rowcolor{surface} \cellcolor{border}\color{surface}TDMA & no ($R/N$) & yes & yes$^*$ & no & yes\\
+\rowcolor{surface2} \cellcolor{border}\color{surface}FDMA & no ($R/N$) & yes & yes$^*$ & yes & yes\\
+\rowcolor{surface} \cellcolor{border}\color{surface}Polling & almost & almost & no (master) & yes & fairly\\
+\rowcolor{surface2} \cellcolor{border}\color{surface}Slotted ALOHA & yes & no ($\le0.37R$) & yes & no & yes\\
+\rowcolor{surface} \cellcolor{border}\color{surface}Pure ALOHA & yes & no ($\le0.18R$) & yes & yes & yes\\
+\rowcolor{surface2} \cellcolor{border}\color{surface}CSMA/CD & yes & nearly ($\eta\approx\frac1{1+5a}$) & yes & yes & yes\\
+\end{tabular}
+\end{center}
+{\small $^*$ once the slots or bands have been assigned. No protocol scores ``yes'' everywhere; random access gives up property 2 under heavy load in exchange for everything else.}
+
+\section{Ethernet's CSMA/CD algorithm}
+
+\begin{formula}[Ethernet CSMA/CD, as run by the NIC (slide 90)]
+\begin{enumerate}
+  \item The NIC receives a datagram from the network layer and creates a frame.
+  \item If the NIC senses the channel \textbf{idle}, it starts transmitting the frame. If it senses the channel \textbf{busy}, it waits until the channel is idle, then transmits.
+  \item If the NIC transmits the entire frame without detecting another transmission, it is done with the frame.
+  \item If the NIC detects another transmission while transmitting, it \textbf{aborts} and sends a \term{jam signal}.
+  \item After aborting, the NIC enters \term{binary exponential backoff}: after the $m$-th collision it chooses $K$ at random from $\{0,1,2,\dots,2^m-1\}$,
+        waits $K\cdot512$ bit times, and returns to step 2.
+\end{enumerate}
+\end{formula}
+
+\begin{defn}[Jam signal and bit time]
+\begin{itemize}
+  \item \term{Jam signal}: 48 bits sent after aborting, to make sure that \emph{all} other transmitters notice the collision.
+  \item \term{Bit time}: the time to send one bit: $0.1\,\mu$s at 10\,Mbps (and $0.01\,\mu$s at 100\,Mbps).
+\end{itemize}
+\end{defn}
+
+\subsection{Exponential backoff, step by step}
+
+\textbf{Goal}: adapt the retransmission attempts to the current load. Under heavy load, the random wait should be longer.
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{>{\columncolor{border}}c c c c}
+\thd{COLLISION $m$} & \cellcolor{border}\thd{$K$ CHOSEN FROM} & \cellcolor{border}\thd{MAX WAIT AT 10\,MBPS} & \cellcolor{border}\thd{P(2 NODES PICK SAME $K$)}\\
+\rowcolor{surface} \cellcolor{border}\color{surface}1 & $\{0,1\}$ & $51.2\,\mu$s & 1/2\\
+\rowcolor{surface2} \cellcolor{border}\color{surface}2 & $\{0,\dots,3\}$ & $153.6\,\mu$s & 1/4\\
+\rowcolor{surface} \cellcolor{border}\color{surface}3 & $\{0,\dots,7\}$ & $358.4\,\mu$s & 1/8\\
+\rowcolor{surface2} \cellcolor{border}\color{surface}10 and up & $\{0,\dots,1023\}$ & $\approx52.4$\,ms & 1/1024\\
+\end{tabular}
+\end{center}
+\begin{itemize}
+  \item The wait for $K$ is $K\cdot512\cdot0.1\,\mu$s $=K\cdot51.2\,\mu$s. For $K=1023$: $1023\times51.2\,\mu\text{s}\approx52.4$\,ms, the slide's ``about 50\,msec''.
+  \item The last column is for \emph{two} colliding nodes: they collide again only if they pick the same $K$, which happens with probability $1/2^m$.
+\end{itemize}
+
+\begin{intuition}[Why ``exponential'' is the right shape \src{KR 6.3.2}]
+We want the interval to be \textbf{short when few nodes collide} (so the channel is not left idle) and \textbf{long when many collide} (so their random choices spread out).
+Nobody knows how many nodes are colliding, but each new collision is evidence that there are many, so the interval doubles. The doubling stops at $m=10$.
+\end{intuition}
+
+\section{MAC addresses}\label{sec:mac}
+
+\begin{defn}[MAC address]
+A \term{MAC address} (also LAN, physical or Ethernet address) is used to get a frame from one interface to another \emph{physically connected} interface on the same network.
+For most LANs it is \textbf{48 bits} long, written as 6 bytes in hexadecimal, e.g.\ \texttt{1A-2F-BB-76-09-AD}. It is burned into the NIC's ROM, and is sometimes also settable in software.
+\end{defn}
+
+\slidefig{0.5\linewidth}{lan_addresses}
+\figcap{Slide 94. Each adapter (blue) on the LAN has its own unique MAC address. Addresses belong to adapters, not to hosts: a host with two NICs has two MAC addresses \src{KR 6.4.1}.}
+
+\begin{formula}[Who hands out MAC addresses]
+The IEEE administers the address space. A manufacturer buys a block of addresses: the IEEE fixes the first 24 bits, and the manufacturer assigns the last 24 bits,
+which is $2^{24}\approx16.8$ million unique addresses per block \src{KR 6.4.1}. In total there are $2^{48}\approx2.8\times10^{14}$ addresses.
+\end{formula}
+
+\begin{intuition}[Flat vs.\ hierarchical: ID number vs.\ postal address]
+A MAC address is like your \textbf{ID number} (\emph{teudat zehut}): a \term{flat} identifier that says nothing about where you are, and stays the same wherever you go.
+So a network card can be moved from one LAN to another and keep its address: \hl{flat $\Rightarrow$ portable}.
+An IP address (later in the course) is \term{hierarchical}, like a postal address: it encodes \emph{where} you are, so it must change when you move, and it is not portable.
+\end{intuition}
+
+\section{Ethernet}
+
+\slidefig{0.45\linewidth}{metcalfe}
+\figcap{Bob Metcalfe's original Ethernet sketch (slide 97): stations attached through transceivers to one shared cable, ``the ether''.}
+
+\begin{defn}[Ethernet]
+The ``dominant'' wired LAN technology: cheap (about \$20 for a NIC); the first widely used LAN technology; simpler and cheaper than token LANs and ATM;
+it kept up with the speed race, from 10\,Mbps to 100\,Gbps. Metcalfe created it by modifying the ALOHA protocol into CSMA/CD \src{KR 6.3.2}.
+\end{defn}
+
+\begin{formula}[Ethernet goodput (slide 98)]
+Let $t_{\text{prop}}$ = the maximum propagation delay between two nodes in the LAN, and $t_{\text{trans}}$ = the time to transmit a maximum-size frame. Then
+\[ \text{goodput}\approx\frac{1}{1+5\,t_{\text{prop}}/t_{\text{trans}}}. \]
+Goodput tends to 1 as $t_{\text{prop}}\to0$ and as $t_{\text{trans}}\to\infty$. This is the $1/(1+5a)$ of CSMA/CD with $a=t_{\text{prop}}/t_{\text{trans}}$.
+\end{formula}
+
+\begin{example}[A 10\,Mbps Ethernet with numbers]
+Maximum frame $\approx1518$ bytes $=12{,}144$ bits, so $t_{\text{trans}}=12{,}144/10^7\approx1.21$\,ms. A 500\,m cable at $2\times10^8$\,m/s: $t_{\text{prop}}=2.5\,\mu$s.
+Then $a=2.5/1214\approx0.0021$ and goodput $\approx1/(1+0.0103)\approx99\%$.
+
+Now speed the same LAN up to 1\,Gbps: $t_{\text{trans}}\approx12.1\,\mu$s, $a\approx0.21$, goodput $\approx1/(1+1.03)\approx49\%$.
+\hl{Faster links shrink $t_{\text{trans}}$ and make the shared-bus design worse}, one reason today's Ethernet uses switched stars.
+\end{example}
+
+\section{WiFi (IEEE 802.11): CSMA/CA}
+
+\begin{formula}[Why WiFi cannot use collision detection (slide 99)]
+802.11 does carrier sensing (it does not start while another node is transmitting), but it has \textbf{no collision detection}:
+\begin{itemize}
+  \item it is hard to receive (sense a collision) while transmitting, because the received signals are weak compared to the node's own (fading);
+  \item even then, it could not sense all collisions: the \textbf{hidden terminal} problem and fading mean the collision happens at the receiver, out of the sender's hearing.
+\end{itemize}
+So the goal changes: \textbf{avoid} collisions. Hence CSMA/C(ollision)A(voidance).
+\end{formula}
+
+\begin{defn}[802.11 CSMA/CA (slide 100)]
+\textbf{Sender}:
+\begin{enumerate}
+  \item If it senses the channel idle for a period called \term{DIFS} (distributed inter-frame space), it transmits the entire frame (there is no CD, so there is no aborting).
+  \item If it senses the channel busy, it starts a \textbf{random backoff} timer. The timer counts down only while the channel is idle (it is frozen while busy). The node transmits when the timer expires.
+        If no ACK comes back, it increases the random backoff interval and repeats step 2.
+\end{enumerate}
+\textbf{Receiver}: if the frame is received OK, it returns an \term{ACK} after a short period \term{SIFS} (short inter-frame space).
+\end{defn}
+
+\slidefig{0.4\linewidth}{csma_ca}
+\figcap{Slide 100. The sender waits DIFS, sends the data; the receiver waits SIFS and sends the ACK.}
+
+\begin{intuition}[Why ACKs, and why back off even after an idle channel \src{KR 7.3.2}]
+\begin{itemize}
+  \item \textbf{ACKs}: without collision detection, the sender cannot know whether its frame arrived. Wireless links also have high bit-error rates. The link-layer ACK is the only evidence.
+  \item \textbf{Backoff}: suppose two stations wait for a third to finish. With Ethernet's rule they would both start the moment it ends, and collide, which is cheap in Ethernet because they abort.
+        In WiFi a collision costs the \emph{whole} frame. So both draw random backoffs instead; the one with the smaller value goes first, and the other hears it and freezes its counter.
+\end{itemize}
+\end{intuition}
+
+\subsection{Reserving the channel: RTS and CTS}
+
+\begin{defn}[RTS/CTS (slide 101)]
+Idea: let the sender \textbf{reserve} the channel instead of sending long data frames at random.
+\begin{enumerate}
+  \item The sender first transmits a small \term{request-to-send} (RTS) packet to the access point (AP), using CSMA. RTSs may still collide with each other, but they are short, so little time is lost.
+  \item The AP broadcasts a \term{clear-to-send} (CTS) in response to the RTS.
+  \item \textbf{Every node hears the CTS}, including nodes hidden from the sender. The sender transmits its data frame, and the other stations defer.
+\end{enumerate}
+\hl{Collisions of data frames are avoided completely, using small reservation packets.}
+\end{defn}
+
+\slidefig{0.65\linewidth}{rts_cts}
+\figcap{Slide 102. A and B send RTS at the same time: a \emph{reservation collision} (cheap, the RTS is short). A retries; the AP answers CTS(A), heard by both A and B.
+A sends DATA(A); B defers until the ACK(A).}
+
+\begin{example}[Why RTS/CTS solves the hidden terminal]
+Take slide 43's picture: A and C are hidden from each other behind the mountain, and both reach B, the AP.
+\begin{enumerate}
+  \item A sends an RTS to B. C does not hear it.
+  \item B broadcasts CTS(A). \textbf{C hears the CTS}, because C does reach B.
+  \item C now knows the channel is reserved, and stays quiet until it hears B's ACK(A).
+\end{enumerate}
+Carrier sensing failed because C could not hear A, the \emph{sender}. RTS/CTS works because C can hear B, the \emph{receiver}, which is exactly where collisions happen.
+\end{example}
+
+\begin{example}[Is the reservation worth it?]
+Say RTS and CTS take $20\,\mu$s each and a data frame takes $1000\,\mu$s. A data-frame collision wastes $1000\,\mu$s; an RTS collision wastes only $20\,\mu$s.
+The price is about $40\,\mu$s of extra control per frame, $4\%$. It pays off when collisions are likely. It does not pay off for very short frames, where the RTS/CTS would be as long as the data.
+\end{example}
+
+\section{Summary: MAC protocols in practice}
+
+\begin{intuition}[Week 02 in one paragraph]
+Networks are built as a stack of five layers: physical, link, network, transport, application. Each layer talks only to its neighbours and its peers, and adds
+its own header (encapsulation). IP is the single narrow waist. Building bottom up, the first challenge is a LAN: a shared broadcast link needs a MAC protocol.
+\textbf{Channel partitioning} (TDMA, FDMA) is fair but wastes the channel when few nodes are busy. \textbf{Random access} gives a lone node the full rate but loses
+to collisions: slotted ALOHA at most $1/e\approx37\%$, pure ALOHA $1/(2e)\approx18\%$. Listening first (CSMA) and aborting early (CSMA/CD, \emph{Ethernet}) push the
+efficiency to $1/(1+5a)$, close to 100\% in a LAN. Wireless cannot detect collisions, so \emph{802.11} avoids them (CSMA/CA, ACKs, RTS/CTS).
+\end{intuition}
+
+% =================================================================
+\parttitle{WEEK 02}{Practice Problems and Summary}
+% =================================================================
+
+\section{Practice problems with full solutions}
+
+\begin{example}[P1: Layers]
+A router receives an Ethernet frame and forwards the packet on a SONET link. Which headers does it read, and which does it replace?
+
+\textbf{Solution.} It removes the Ethernet (link) header, reads the IP (network) header to choose the outgoing link, decrements the TTL, and wraps the datagram in a new
+SONET link header. It never reads the TCP or HTTP headers: transport and application exist only at the hosts.
+\end{example}
+
+\begin{example}[P2: Encapsulation overhead]
+An application sends 100 bytes over TCP/IP/Ethernet. What fraction of the frame (headers only) is data? And for 1000 bytes?
+
+\textbf{Solution.} $100/154=64.9\%$. $1000/1054=94.9\%$.
+\end{example}
+
+\begin{example}[P3: Slotted ALOHA]
+$N=4$ nodes, each transmits in a slot with probability $p=0.2$. (a) Probability that node 1 succeeds in a slot? (b) Goodput? (c) The best $p$ and its goodput?
+
+\textbf{Solution.} (a) $0.2\cdot0.8^3=0.1024$. (b) $4\times0.1024=0.4096$. (c) $p^*=1/4$: $(3/4)^3=0.4219$.
+\end{example}
+
+\begin{example}[P4: Empty slots]
+In P3 with $p=0.2$, what fraction of slots is empty, and what fraction has collisions?
+
+\textbf{Solution.} Empty: $0.8^4=0.4096$. Collisions: $1-0.4096-0.4096=0.1808$.
+\end{example}
+
+\begin{example}[P5: Pure ALOHA]
+$N=3$ nodes, $p=0.2$. Goodput of pure ALOHA? Compare with slotted ALOHA.
+
+\textbf{Solution.} Pure: $3\cdot0.2\cdot0.8^{4}=0.2458$. Slotted: $3\cdot0.2\cdot0.8^{2}=0.384$. Pure is lower because the vulnerable window is twice as long.
+\end{example}
+
+\begin{example}[P6: CSMA/CD minimum frame]
+A CSMA/CD LAN runs at 100\,Mbps over at most 200\,m of cable ($s=2\times10^8$\,m/s). What is the minimum frame size?
+
+\textbf{Solution.} $\PROP=200/(2\times10^8)=1\,\mu$s. Need $\TRANSP\ge2\,\PROP=2\,\mu$s, so $L\ge2\times10^{-6}\times10^8=200$ bits $=25$ bytes.
+\end{example}
+
+\begin{example}[P7: CSMA/CD efficiency]
+$\PROP=5\,\mu$s and $\TRANSP=100\,\mu$s. Find $a$ and the efficiency in both models.
+
+\textbf{Solution.} $a=0.05$. Simple model: $1/(1+0.15)=87\%$. Simulation model: $1/(1+0.25)=80\%$.
+\end{example}
+
+\begin{example}[P8: Wasted slots]
+In the CSMA/CD model, a slot is won with probability $\alpha=0.25$. Expected wasted slots per packet?
+
+\textbf{Solution.} $A=(1-\alpha)/\alpha=0.75/0.25=3$ slots, i.e.\ $3\times2\,\PROP=6\,\PROP$ of overhead per packet.
+\end{example}
+
+\begin{example}[P9: Exponential backoff]
+Two Ethernet NICs collide for the 3rd time on a 10\,Mbps LAN. (a) From which set is $K$ chosen? (b) Probability that they collide again? (c) Longest possible wait?
+
+\textbf{Solution.} (a) $\{0,\dots,7\}$. (b) They pick the same $K$ with probability $8\cdot(1/8)^2=1/8$. (c) $7\times512\times0.1\,\mu$s $=358.4\,\mu$s.
+\end{example}
+
+\begin{example}[P10: Hidden terminal]
+A, B and C are in a line; A and C are each 80\,m from B, and the radio range is 100\,m. Can A and C hear each other? Which mechanism stops their data frames from colliding at B?
+
+\textbf{Solution.} A and C are 160\,m apart, beyond the range: they are hidden from each other, so carrier sensing fails. RTS/CTS: B's CTS reaches both, so the station that did not win the CTS defers.
+\end{example}
+
+\section{Cheat sheet}
+
+\begin{formula}[Week 02 on one page]
+\begin{itemize}
+  \item Modularity: interfaces hide implementation; extensible; can cost performance. Network design choices: layering, where to implement, where to keep state.
+  \item Layers: Physical (bits) / Link (frames, local addresses, MAC) / Network (packets, global addresses, routing, IP only) / Transport (processes; TCP, UDP) / Application. Routers: bottom 3. Hosts: all 5.
+  \item Protocol = syntax (format, order) + semantics (meaning, actions). Standards: IETF RFCs. Layer = service + interface + protocol.
+  \item Encapsulation: each layer adds a header. TCP 20 + IP 20 + Ethernet 14 = 54 bytes. Hourglass: IP is the narrow \emph{waist}.
+  \item MAC protocol: distributed; coordinates over the channel itself. Wish list: alone $\to R$; $M$ busy $\to R/M$; decentralized; no sync; simple.
+  \item TDMA/FDMA: no collisions, fair, but $R/N$ even when alone; unused slots/bands idle.
+  \item Slotted ALOHA: $\alpha=Np(1-p)^{N-1}$, $p^*=1/N$, max $(1-\frac1N)^{N-1}\to1/e\approx0.37$. Pure ALOHA: $Np(1-p)^{2(N-1)}$, max $\to1/(2e)\approx0.18$.
+  \item CSMA: listen first; collisions still happen because of propagation delay. CSMA/CD: abort on collision; need $\TRANSP\ge2\,\PROP$.
+  \item CSMA/CD goodput: $A=(1-\alpha)/\alpha$; $\eta=1/(1+3a)$ (simple), $\approx1/(1+5a)$ (precise), $a=\PROP/\TRANSP$.
+  \item Ethernet: after the $m$-th collision $K\in\{0,\dots,2^m-1\}$ (capped at $m=10$), wait $K\cdot512$ bit times; jam 48 bits; bit time $0.1\,\mu$s at 10\,Mbps.
+  \item MAC address: 48 bits, flat, portable, IEEE gives 24-bit prefixes. IP address: hierarchical, not portable.
+  \item 802.11: no CD (weak received signal, hidden terminal, fading) $\Rightarrow$ CSMA/CA: DIFS, random backoff frozen while busy, ACK after SIFS; RTS/CTS reserves the channel.
+\end{itemize}
+\end{formula}
+
+\end{document}

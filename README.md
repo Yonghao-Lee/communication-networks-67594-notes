@@ -13,6 +13,7 @@ Textbook-style study notes for **Introduction to Communication Networks** (HUJI 
 | Week | Notes | What you will learn |
 |---|---|---|
 | 01 | [**week01.pdf**](week01.pdf) | **Lecture:** what a network is; latency and the four delays (processing, queuing, transmission, propagation); circuit switching (setup/transfer/teardown, TDM/FDM) and its weaknesses; packet switching and store-and-forward; bursts, buffers and queues; statistical multiplexing and the Law of Large Numbers; circuit vs. packet switching. **Tutorial:** probability for networks: conditional probability, Bayes, random variables, expectation and variance, Bernoulli/binomial/geometric/Poisson, continuous distributions, memorylessness, the Poisson process. Ends with practice problems with full solutions and a one-page cheat sheet. |
+| 02 | [**week02.pdf**](week02.pdf) | **Lecture:** modularity and layering; the five layers and who implements them; protocols (syntax and semantics, HTTP, the IP header, IETF/RFCs); encapsulation and header overhead; service/interface/protocol per layer; the narrow waist. The link layer: frames, NICs, the multiple access problem (bus vs. star, hidden terminal), the ideal MAC protocol; TDMA/FDMA; slotted and pure ALOHA with full goodput derivations ($1/e$, $1/2e$); CSMA, CSMA/CD and its goodput $1/(1+5a)$; Ethernet's binary exponential backoff; MAC addresses; 802.11 CSMA/CA and RTS/CTS. No tutorial file this week. Ends with practice problems with full solutions and a cheat sheet. |
 
 New weeks are added as the course goes on.
 
@@ -38,6 +39,8 @@ The colour-coded boxes are:
 pdflatex -interaction=nonstopmode week01.tex
 pdflatex -interaction=nonstopmode week01.tex   # second run for the contents
 ```
+
+Replace `week01` with the week you want.
 
 ## Sources and credits
 
