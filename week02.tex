@@ -1,9 +1,10 @@
 % ===================================================================
 % Week 02 -- Introduction to Communication Networks (HUJI 67594)
-% Source (in materials/week02/): "2 layers+broadcast.pptx.pdf" (lecture,
-% Y. Gilad). No tutorial file was provided for this week.
+% Sources (in materials/week02/): "2 layers+broadcast.pptx.pdf" (lecture,
+% Y. Gilad) and "Recitation 2.pdf" (recitation, ALOHA, 19 Oct 2026).
 % References: Kurose & Ross, Computer Networking: A Top-Down Approach (8th ed.)
-% [KR], ch. 1.5, 6.1, 6.3, 6.4.1-6.4.2, 7.2, 7.3.2.
+% [KR], ch. 1.4, 1.5, 6.1, 6.3, 6.4.1-6.4.2, 7.2, 7.3.2; Bertsekas & Gallager,
+% Data Networks (2nd ed.) [BG], 4.2.2, 4.2.4.
 % Build: pdflatex -interaction=nonstopmode week02.tex  (twice)
 % ===================================================================
 \input{preamble}
@@ -33,12 +34,12 @@
 {\ttfamily\small\color{pgreen}HUJI \textperiodcentered\ 67594 \textperiodcentered\ INTRODUCTION TO COMMUNICATION NETWORKS}\par\vspace{6pt}
 {\sffamily\bfseries\fontsize{30}{34}\selectfont\color{pgold}Week 02}\par\vspace{4pt}
 {\sffamily\bfseries\Large\color{pgold}Layering; Multiple Access on a Shared Link}\par\vspace{4pt}
-{\raggedright\ttfamily\small\color{pcyan}modularity \textperiodcentered\ protocols \textperiodcentered\ the five layers \textperiodcentered\ encapsulation \textperiodcentered\ TDMA/FDMA \textperiodcentered\ ALOHA \textperiodcentered\ CSMA/CD \textperiodcentered\ Ethernet \textperiodcentered\ CSMA/CA \textperiodcentered\ RTS/CTS\par}
+{\raggedright\ttfamily\small\color{pcyan}modularity \textperiodcentered\ protocols \textperiodcentered\ the five layers \textperiodcentered\ encapsulation \textperiodcentered\ TDMA/FDMA \textperiodcentered\ ALOHA \textperiodcentered\ CSMA/CD \textperiodcentered\ Ethernet \textperiodcentered\ CSMA/CA \textperiodcentered\ RTS/CTS \textperiodcentered\ OSI \textperiodcentered\ goodput \textperiodcentered\ binomial vs.\ Poisson ALOHA\par}
 \vspace{0.8em}
 
 \begin{plainbox}
-\textbf{What this week contains.} This week's only file is the lecture (``2 layers+broadcast'', 103 slides); there was no separate
-tutorial file. So Part A is the lecture, written as a textbook chapter, followed by practice problems and a cheat sheet.
+\textbf{What this week contains.} Part A is the lecture (``2 layers+broadcast'', 103 slides), written as a textbook chapter. Part B is Recitation 2 (``ALOHA'', 50 slides):
+the OSI model, goodput, slotted and pure ALOHA in the binomial and Poisson models, and two exam-style questions, all solved step by step. Practice problems and a cheat sheet follow.
 The lecture's ``Probability 101'' block (slides 49--67) repeats Tutorial 1, which Week 01 Part B solves in full. Here it gets a short recap,
 plus the one new mathematical tool that the MAC analysis needs, the limit $(1-1/N)^N\to1/e$.
 \end{plainbox}
@@ -1037,6 +1038,525 @@ efficiency to $1/(1+5a)$, close to 100\% in a LAN. Wireless cannot detect collis
 \end{intuition}
 
 % =================================================================
+\parttitle{PART B \textperiodcentered\ RECITATION 2}{ALOHA, Step by Step}
+% =================================================================
+
+\begin{plainbox}
+\textbf{What the recitation adds.} Recitation 2 (``ALOHA'', 50 slides, 19 October 2026) revisits the random access part of the lecture, but from the
+exam's point of view. Parts of it repeat Part A (slotted and pure ALOHA). The new material is:
+\begin{itemize}
+  \item the 7-layer \textbf{OSI model} (the lecture used 5 layers);
+  \item precise definitions of \textbf{bandwidth, throughput and goodput}, with two warm-up calculations;
+  \item \textbf{two ways} to compute the goodput (one slot vs.\ waiting for a success) and the \textbf{binomial vs.\ Poisson} models;
+  \item two exam-style questions that \textbf{mix} slotted and pure ALOHA in one network.
+\end{itemize}
+Every slide question is solved in full below, then extended with numbers. The recitation announces a Poisson analysis but never does it; \S\ref{sec:poisson} fills it in,
+following Bertsekas \& Gallager \src{BG 4.2.2, 4.2.4}.
+\end{plainbox}
+
+\section{The OSI model: seven layers}
+
+The lecture built the Internet's \emph{five} layers (Part A, \S Layering). The recitation starts from the older reference model with \emph{seven}.
+
+\begin{defn}[OSI model]
+The \term{Open Systems Interconnection (OSI) model} is an abstract description of the functions a communication system needs, split into layers.
+As in Part A, \hl{each layer uses the service of the layer beneath it and serves the layer above it}. OSI has 7 layers; the Internet stack merges three of them into one and has 5.
+\end{defn}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{>{\columncolor{border}}c l l p{6.2cm}}
+\thd{\#} & \cellcolor{border}\thd{LAYER} & \cellcolor{border}\thd{DATA UNIT} & \cellcolor{border}\thd{FUNCTION}\\
+\rowcolor{surface} \cellcolor{border}\color{surface}7 & Application & data & high-level APIs between applications (e.g.\ an HTTP GET)\\
+\rowcolor{surface2} \cellcolor{border}\color{surface}6 & Presentation & data & translating data between the network and the application (e.g.\ encryption, compression)\\
+\rowcolor{surface} \cellcolor{border}\color{surface}5 & Session & data & managing a continuing session (setting it up, checkpointing, ending it)\\
+\rowcolor{surface2} \cellcolor{border}\color{surface}4 & Transport & segment & delivery between processes, reliable or not (acknowledgements)\\
+\rowcolor{surface} \cellcolor{border}\color{surface}3 & Network & packet & multi-hop networks: global addressing, routing\\
+\rowcolor{surface2} \cellcolor{border}\color{surface}2 & Data link & frame & delivering frames between two neighbouring nodes\\
+\rowcolor{surface} \cellcolor{border}\color{surface}1 & Physical & bit & sending raw bits over a medium (copper, fibre, air)\\
+\end{tabular}
+\end{center}
+
+\begin{intuition}[Where did layers 5 and 6 go?]
+The Internet stack has no separate session or presentation layer. If an application needs these services (encryption, for example, through TLS), \hl{the application provides them itself}.
+That is why the Internet has 5 layers: OSI layers 5--7 together form the Internet's application layer.
+\end{intuition}
+
+\begin{example}[Which layer? (slide 6)]
+DNS, HTTP $\to$ layer 7. TCP, UDP $\to$ layer 4. IP $\to$ layer 3. MAC protocols (ALOHA, CSMA/CD) $\to$ layer 2. The radio or the cable $\to$ layer 1.
+\end{example}
+
+\begin{pitfall}[Slide 6: ``Layer 1: Wi-Fi'', ``Layer 2: MAC'']
+\textbf{Wi-Fi is not just a layer 1 protocol.} IEEE 802.11 specifies \emph{both} the physical layer (radio) \emph{and} the link layer, including its MAC protocol, CSMA/CA (Part A, \S WiFi).
+Ethernet is likewise both layers 1 and 2. And ``MAC'' is not one protocol but a \emph{sub-layer} of layer 2: the part that decides who may transmit. ALOHA, CSMA/CD and CSMA/CA are all MAC protocols.
+\end{pitfall}
+
+\section{Random access: the setting}
+
+\begin{defn}[Shared medium]
+In a \term{shared medium}, all nodes transmit on, and listen to, the same channel. The recitation's rules:
+\begin{enumerate}
+  \item a node that transmits uses the \hl{full bandwidth} of the link;
+  \item if two or more nodes transmit at the same time, there is a \term{collision} and \hl{all the data involved is lost};
+  \item noise is ignored: a frame that does not collide arrives intact.
+\end{enumerate}
+\end{defn}
+
+\begin{center}
+\begin{tikzpicture}[font=\scriptsize]
+  \begin{scope}
+    \node[draw=border,fill=surface,minimum width=1cm,minimum height=0.7cm] (a) at (0,0) {A};
+    \node[draw=border,fill=surface,minimum width=1cm,minimum height=0.7cm] (b) at (4,0) {B};
+    \draw[line width=1.4pt,ink] (a)--(b) node[midway,below=2pt]{shared wire};
+    \fill[pgreen] (1.6,0.1) rectangle (2.4,0.3);
+    \draw[arr,pgreen] (2.5,0.2)--(3.1,0.2);
+    \node[pgreen] at (2,0.6) {one frame: success};
+  \end{scope}
+  \begin{scope}[xshift=6.5cm]
+    \node[draw=border,fill=surface,minimum width=1cm,minimum height=0.7cm] (a) at (0,0) {A};
+    \node[draw=border,fill=surface,minimum width=1cm,minimum height=0.7cm] (b) at (4,0) {B};
+    \draw[line width=1.4pt,ink] (a)--(b);
+    \fill[pgold] (1.2,0.1) rectangle (1.85,0.3);
+    \fill[pcyan] (2.15,0.1) rectangle (2.8,0.3);
+    \node[ppink,font=\bfseries\large] at (2,0.2) {$\ast$};
+    \node[ppink] at (2,0.6) {two frames: collision, both lost};
+  \end{scope}
+\end{tikzpicture}
+\figcap{After slide 8.}
+\end{center}
+
+\section{Bandwidth, throughput and goodput}
+
+\begin{defn}[Bandwidth $B$]
+The \term{bandwidth} $B$ is the maximum rate at which the channel can carry data, in bits per second. A frame of $L$ bits therefore takes $T = L/B$ seconds to send.
+(Kurose \& Ross call the same quantity the transmission rate $R$ \src{KR 1.4.1}.)
+\end{defn}
+
+\begin{defn}[Throughput and goodput (recitation's definitions)]
+\begin{itemize}
+  \item \term{Throughput}: the fraction of the bandwidth (equivalently, of the time) that is used to send \emph{anything}, including frames that collide.
+  \item \term{Goodput} $\eta$: the fraction of the bandwidth used to send traffic \emph{successfully}:
+  \[ \eta = \frac{\text{average effective bandwidth used}}{\text{total bandwidth}} = \frac{\text{average time of successful transmissions}}{\text{total time}}, \]
+  with $0\le\eta\le1$.
+\end{itemize}
+The two forms agree because a transmitting node always uses the full bandwidth. Here both quantities are unitless fractions.
+\end{defn}
+
+\begin{intuition}[A noisy classroom (slide 9)]
+In a class where everybody talks at once, the air is busy all the time: \textbf{throughput is high}. But nobody can follow anything: \textbf{goodput is close to zero}.
+A random access protocol is judged by its goodput.
+\end{intuition}
+
+\begin{pitfall}[Throughput has two meanings]
+In the recitation, throughput is a unitless \emph{fraction}. In Kurose \& Ross and in most of the course, throughput is a \emph{rate} in bits/s (``the rate at which the receiver gets bits'', \src{KR 1.4.4}).
+The two are linked by multiplying by $B$: a goodput of $0.37$ on a 100\,Mbps link is a useful rate of $37$\,Mbps. Always check the units in a question.
+\end{pitfall}
+
+\begin{example}[Slide 10, question 1: time to send a packet]
+$B = 5$ bit/s, packet size $30$ bits. \;$T = \dfrac{|\text{packet}|}{B} = \dfrac{30\text{ bit}}{5\text{ bit/s}} = 6$\,s.
+\end{example}
+
+\begin{example}[Slide 10, question 2: bandwidth needed]
+We need to send 3 packets of 30 bits within 2\,s. In total that is $90$ bits, so $B = \dfrac{3\cdot30\text{ bit}}{2\text{ s}} = 45$ bit/s.
+\end{example}
+
+\begin{example}[Extension: the same questions with real numbers]
+A 1500-byte Ethernet frame ($12\,000$ bits) on a 100\,Mbps link takes $T = 12\,000/10^8 = 120\,\mu$s. Streaming 1000 such frames per second needs
+$B \ge 1000\cdot12\,000 = 12$\,Mbps. With a random access protocol of goodput $\eta$, the link must be faster still: $B \ge 12/\eta$\,Mbps, i.e.\ about $32.6$\,Mbps for slotted ALOHA at its best ($\eta = 1/e$).
+\end{example}
+
+\section{ALOHA: a brief history}
+
+ALOHAnet was Norman Abramson's radio packet network at the University of Hawaii (the slides date the project to 1968; it was described in 1970) \src{KR 6.3.2, case history}.
+Laying cables between mountainous islands was impractical, so terminals scattered over the islands talked to one central host by radio, on \textbf{two frequencies}:
+\begin{itemize}
+  \item \textbf{downlink}, central host $\to$ terminals: only the host transmits, so there is no conflict. The host also sends an acknowledgement for every packet it received;
+  \item \textbf{uplink}, terminals $\to$ host: shared by all terminals, so their packets can collide.
+\end{itemize}
+The designers considered dividing the uplink (multiplexing, Part A, \S TDMA/FDMA), but chose instead to let every terminal simply transmit, and retransmit after a random delay if no acknowledgement came back.
+That is (pure) ALOHA, the first multiple access protocol. Its random access idea inspired Bob Metcalfe's CSMA/CD and Ethernet (Part A).
+
+\section{The general model}
+
+\begin{defn}[The recitation's ALOHA model (slides 16--17)]
+\begin{itemize}
+  \item $N$ nodes; usually we look at the limit of many nodes, $N\to\infty$.
+  \item Bandwidth $B$; every frame has $L$ bits. Time is divided into \term{slots} of length $T = L/B$: \hl{one slot = the time to send one frame}.
+  \item A successful transmission uses the entire bandwidth for the entire slot.
+  \item A node may start only at the beginning of a slot; a message that arrives mid-slot waits for the next slot.
+  \item When a node finishes transmitting, it knows whether there was a collision; if so, it resends later.
+  \item Propagation delay is ignored.
+\end{itemize}
+\end{defn}
+
+\begin{defn}[Slotted vs.\ pure ALOHA (slide 18)]
+\begin{itemize}
+  \item \term{Slotted ALOHA}: all nodes' clocks are synchronized, so all slots are aligned.
+  \item \term{Pure ALOHA}: each node has its \emph{own} clock (synchronizing clocks is expensive). Each node still uses slots of length $T$, but different nodes' slots are \hl{shifted against each other}.
+\end{itemize}
+\end{defn}
+
+\begin{defn}[Binomial vs.\ Poisson models (slide 19)]
+Let $X$ be the number of transmissions that start in one slot.
+\begin{itemize}
+  \item \term{Binomial model}: $n$ nodes, each sending with probability $p$, independently. Then $X\sim\text{Bin}(n,p)$.
+  \item \term{Poisson model}: infinitely many nodes, which together start on average $G$ transmissions per slot. Then $X\sim\text{Poi}(G)$.
+\end{itemize}
+The two are linked by the Poisson approximation from Week 01: if $n$ is large and $p$ small, $\text{Bin}(n,p)\approx\text{Poi}(np)$. So $G = np$.
+\end{defn}
+
+\begin{pitfall}[Slide 19: ``at a rate of $\lambda$ per $T$'' and $X\sim\text{Poi}(\lambda T)$]
+These two statements do not fit together. If $\lambda$ counts transmissions \emph{per slot}, then $X\sim\text{Poi}(\lambda)$. If $\lambda$ counts transmissions \emph{per second},
+then the mean in a slot of $T$ seconds is $\lambda T$, and $X\sim\text{Poi}(\lambda T)$. The second reading is the usual one. To avoid the clash, we write $G = \lambda T$ for the mean number per slot (Bertsekas \& Gallager's notation, \src{BG 4.2.2}).
+\end{pitfall}
+
+\section{Slotted ALOHA, binomial model}
+
+\textbf{Assumptions (slide 22).} All $n$ nodes always have something to send; in every slot, each node transmits with probability $p$, independently. This is the same simplified model as in Part A.
+A slot is \hl{successful} if exactly one node transmits.
+
+\subsection{View 1: look at one slot (slide 24)}
+
+\begin{enumerate}
+  \item \textbf{All slots are alike}, so the long-run fraction of useful time equals what happens in \emph{one} typical slot.
+  \item \textbf{Count transmissions}: $X\sim\text{Bin}(n,p)$, so $P(X=x) = \binom nx p^x(1-p)^{n-x}$.
+  \item \textbf{Success} means $X=1$:
+        \[ P_{\text{suc}} = P(X=1) = \binom n1 p(1-p)^{n-1} = np(1-p)^{n-1}. \]
+  \item \textbf{Useful time in the slot}: let $T_{\text{suc}}$ be the time spent on successful transmission in the slot. It is $T$ if the slot succeeds and $0$ otherwise, so
+        \[ \E[T_{\text{suc}}] = T\cdot P_{\text{suc}} + 0\cdot(1-P_{\text{suc}}) = T\,P_{\text{suc}}. \]
+  \item \textbf{Goodput}: useful time over total time,
+        \[ \boxed{\ \eta = \frac{\E[T_{\text{suc}}]}{T} = P_{\text{suc}} = np(1-p)^{n-1}\ } \]
+\end{enumerate}
+
+\subsection{View 2: wait for a success (slide 25)}
+
+\begin{enumerate}
+  \item Each slot succeeds with probability $P_{\text{suc}}$, independently of the other slots.
+  \item The number of slots up to and including the first success is geometric: $X\sim\text{Geo}(P_{\text{suc}})$, with $\E[X] = 1/P_{\text{suc}}$.
+  \item So on average, every $1/P_{\text{suc}}$ slots (time $T/P_{\text{suc}}$) deliver one frame (useful time $T$):
+        \[ \eta = \frac{T}{T\cdot\frac{1}{P_{\text{suc}}}} = P_{\text{suc}}. \]
+\end{enumerate}
+
+\begin{intuition}[Same answer, two stories]
+View 1 asks ``what fraction of each slot is useful, on average?''. View 2 asks ``how long do I wait for each useful slot?''. A rate (successes per slot) and a waiting time
+(slots per success) are reciprocals of each other, so both give $\eta = P_{\text{suc}}$. Use whichever is easier in a question.
+\end{intuition}
+
+\begin{example}[$n=10$ nodes, $p = 0.05$]
+$P_{\text{suc}} = 10\cdot0.05\cdot0.95^9 = 0.5\cdot0.630 = 0.315$. View 2: a success every $1/0.315\approx3.2$ slots on average. With $T=1$\,ms, that is one delivered frame every $3.2$\,ms, and a goodput of $31.5\%$.
+\end{example}
+
+\subsection{The best $p$ and the limit (slides 26--27)}
+
+Part A (\S The goodput of slotted ALOHA) carries out the derivative: $\frac{d\eta}{dp} = n(1-p)^{n-2}\big[(1-p)-(n-1)p\big] = 0$ gives $p^* = 1/n$.
+The bracket is positive for $p<1/n$ and negative for $p>1/n$, so this is a maximum. Then
+\[ \eta(p^*) = \Big(1-\frac1n\Big)^{n-1}\ \xrightarrow{\ n\to\infty\ }\ \frac1e\approx0.37. \]
+
+\begin{example}[How sharp is the peak? $n=10$]
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{c|ccccccc}
+$p$ & 0.02 & 0.05 & 0.08 & \textbf{0.10} & 0.12 & 0.15 & 0.20\\\hline
+$\eta = 10p(1-p)^9$ & 0.167 & 0.315 & 0.378 & \textbf{0.387} & 0.380 & 0.347 & 0.268\\
+\end{tabular}
+\end{center}
+Getting $p$ within $\pm20\%$ of $1/n$ costs little. Being off by a factor of 2 costs a lot, and in a real network the nodes do not know $n$, which makes this a real problem.
+\end{example}
+
+\begin{intuition}[Why ALOHA is still used]
+Slotted ALOHA is completely distributed: no node needs to know about the others, apart from the slot clock. The price is that at best $37\%$ of the channel is used (slide 27).
+\end{intuition}
+
+\section{Pure ALOHA, binomial model}
+
+\begin{center}
+\begin{tikzpicture}[x=1.5cm,y=0.55cm,font=\scriptsize]
+  \foreach \y/\n in {2/1,1/2,0/3} \node[anchor=east] at (-0.1,\y) {Node \n};
+  \fill[ppink!70,draw=ink] (1.4,1.75) rectangle (2.4,2.25);
+  \fill[pgreen!60,draw=ink] (2,0.75) rectangle (3,1.25);
+  \fill[pgold!70,draw=ink] (2.6,-0.25) rectangle (3.6,0.25);
+  \draw[arr] (0,-0.8)--(3.8,-0.8) node[right]{time};
+  \draw[dashed,muted] (1,-0.8)--(1,2.6) node[above]{$t-T$};
+  \draw[dashed,muted] (2,-0.8)--(2,2.6) node[above]{$t$};
+  \draw[dashed,muted] (3,-0.8)--(3,2.6) node[above]{$t+T$};
+\end{tikzpicture}
+\figcap{After slide 29. Node 2 starts at time $t$. Node 1 started less than $T$ earlier and node 3 starts less than $T$ later: both overlap node 2's frame, so all three frames are lost.}
+\end{center}
+
+\begin{defn}[Vulnerable period]
+The \term{vulnerable period} of a frame is the set of times at which \emph{another} transmission may not start, or the frame collides.
+\begin{itemize}
+  \item Slotted ALOHA: only the frame's own slot, length $T$.
+  \item Pure ALOHA: any start in $(t-T,\,t+T)$ overlaps a frame sent at $t$, so the vulnerable period is \hl{$2T$}.
+\end{itemize}
+\end{defn}
+
+\textbf{The success probability, step by step.}
+\begin{enumerate}
+  \item Fix a node $i$ that transmits in its own slot $[t,t+T]$: probability $p$.
+  \item Any other node $j$ has its own, shifted slots. Exactly \textbf{two} of node $j$'s slots overlap $[t,t+T]$: the one that started in $(t-T,t]$ and the one that starts in $(t,t+T)$.
+  \item Node $j$ stays silent in both with probability $(1-p)^2$. For all $n-1$ other nodes, by independence: $\big((1-p)^2\big)^{n-1} = (1-p)^{2(n-1)}$.
+  \item So node $i$ succeeds with probability $p(1-p)^{2(n-1)}$. The success events of different nodes are disjoint, so we add over the $n$ nodes:
+        \[ \boxed{\ \eta = P_{\text{suc}} = np(1-p)^{2(n-1)}\ } \]
+        (The goodput step is the same as in view 1 above: $\E[T_{\text{suc}}] = T\,P_{\text{suc}}$.)
+\end{enumerate}
+
+\begin{pitfall}[Slide 30: $P(\cdot)\cap P(\cdot)$]
+Slide 30 writes
+\[ P_{\text{suc}} = P(\text{some node transmitted})\cap P(\text{no other node transmitted in two overlapping slots}). \]
+Two problems:
+\begin{itemize}
+  \item $\cap$ is an operation on \emph{events}, not on numbers. The correct form is $P(A\cap B)$, which equals $P(A)P(B)$ when $A$ and $B$ are independent (the next line of the slide).
+  \item ``$P(\text{some node transmitted})$'' is then set to $np$. But the probability that \emph{some} node transmits is $1-(1-p)^n$, not $np$ (for $n=10$, $p=0.2$: $0.89$, while $np = 2$, not even a probability).
+        The factor $n$ really comes from \emph{adding} the $n$ disjoint events ``node $i$ transmits and all others are silent'', as in step 4.
+\end{itemize}
+The final formula on the slide is correct.
+\end{pitfall}
+
+\textbf{The best $p$} (slide 31 only states it). Differentiate as in the slotted case:
+\[ \frac{d\eta}{dp} = n(1-p)^{2n-3}\big[(1-p) - 2(n-1)p\big] = 0\quad\Longrightarrow\quad p^* = \frac{1}{2n-1}. \]
+Substituting, with $m = 2n-1$:
+\[ \eta(p^*) = \frac{n}{2n-1}\Big(1-\frac1m\Big)^{m-1}\ \xrightarrow{\ n\to\infty\ }\ \frac12\cdot\frac1e = \frac1{2e}\approx0.18. \]
+
+\begin{pitfall}[Slide 31: ``the goodput is $1/(2e)$'']
+$1/(2e)$ is the goodput only in the limit of many nodes. For finite $n$ the best goodput is larger: $0.296$ for $n=2$, $0.216$ for $n=5$, $0.191$ for $n=20$ (table in Part A).
+\end{pitfall}
+
+\section{The Poisson models}\label{sec:poisson}
+
+Slide 20 promises four models, but the recitation analyses only the two binomial ones. Here are the other two. Now infinitely many nodes start on average $G$ transmissions per slot,
+so the number of starts in any interval of length $\tau$ is $\text{Poi}(G\tau/T)$ \src{BG 4.2.2}. Recall $P(\text{Poi}(\mu) = k) = e^{-\mu}\mu^k/k!$.
+
+\textbf{Slotted, Poisson.}
+\begin{enumerate}
+  \item A slot succeeds iff exactly one transmission starts in it: $P(X=1) = e^{-G}G$.
+  \item Goodput, as in view 1: $\eta = Ge^{-G}$.
+  \item Best $G$: $\frac{d}{dG}\,Ge^{-G} = (1-G)e^{-G} = 0$, so $G^*=1$ and $\eta_{\max} = e^{-1}\approx0.37$.
+\end{enumerate}
+
+\textbf{Pure, Poisson.}
+\begin{enumerate}
+  \item A frame starting at $t$ succeeds iff no other frame starts in its vulnerable period of length $2T$. The number of starts there is $\text{Poi}(2G)$, so $P(\text{no other start}) = e^{-2G}$.
+  \item Frames start at rate $G$ per slot, and each succeeds with probability $e^{-2G}$: $\eta = Ge^{-2G}$ \src{BG 4.2.4}.
+  \item Best $G$: $(1-2G)e^{-2G} = 0$, so $G^* = \frac12$ and $\eta_{\max} = \frac12e^{-1} = \frac1{2e}\approx0.18$.
+\end{enumerate}
+
+\begin{example}[Goodput vs.\ load $G$]
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{>{\columncolor{border}}c c c}
+\thd{$G$ (ATTEMPTS PER SLOT)} & \cellcolor{border}\thd{SLOTTED $Ge^{-G}$} & \cellcolor{border}\thd{PURE $Ge^{-2G}$}\\
+\rowcolor{surface} \cellcolor{border}\color{surface}0.25 & 0.195 & 0.152\\
+\rowcolor{surface2} \cellcolor{border}\color{surface}0.5 & 0.303 & \textbf{0.184}\\
+\rowcolor{surface} \cellcolor{border}\color{surface}1 & \textbf{0.368} & 0.135\\
+\rowcolor{surface2} \cellcolor{border}\color{surface}2 & 0.271 & 0.037\\
+\end{tabular}
+\end{center}
+At $G=2$ the channel is overloaded: slotted ALOHA keeps $27\%$, pure ALOHA only $4\%$.
+\end{example}
+
+\begin{intuition}[The two models agree]
+Put $p = G/n$ in the binomial formula: $np(1-p)^{n-1} = G(1-G/n)^{n-1}\to Ge^{-G}$ as $n\to\infty$, the same limit as in Part A's $(1-1/N)^N\to1/e$. The Poisson model is simply the binomial
+model with infinitely many nodes, each very quiet. That is why both give $1/e$ and $1/(2e)$.
+\end{intuition}
+
+\begin{center}
+\begin{tikzpicture}
+\begin{axis}[width=0.72\linewidth,height=5cm,xmin=0,xmax=3,ymin=0,ymax=0.42,
+  xlabel={$G$ (attempts per slot)},ylabel={goodput $\eta$},axis lines=left,
+  tick label style={font=\scriptsize},label style={font=\small},
+  legend style={font=\scriptsize,draw=border,fill=surface},legend pos=north east]
+  \addplot[pgreen,thick,domain=0:3,samples=120] {x*exp(-x)};
+  \addplot[pgold,thick,domain=0:3,samples=120] {x*exp(-2*x)};
+  \legend{slotted $Ge^{-G}$,pure $Ge^{-2G}$}
+\end{axis}
+\end{tikzpicture}
+\figcap{Poisson models. The slotted curve peaks at $G=1$ with $1/e$, the pure one at $G=1/2$ with $1/(2e)$. Beyond the peak, more attempts mean \emph{less} goodput.}
+\end{center}
+
+\section{Question 1: one host, two networks}
+
+\begin{center}
+\begin{tikzpicture}[font=\scriptsize,node distance=1cm]
+  \tikzset{host/.style={draw=border,fill=surface,minimum width=0.7cm,minimum height=0.55cm,font=\sffamily\bfseries\scriptsize}}
+  \draw[line width=1.6pt,pgreen] (0,1.2)--(7,1.2) node[pos=0.5,below=1pt]{upper network: slotted ALOHA};
+  \draw[line width=1.6pt,pgold] (0,-1.2)--(7,-1.2) node[pos=0.5,above=1pt]{lower network: pure ALOHA};
+  \node[host] (C) at (-0.8,0) {C}; \node[host] (D) at (7.8,0) {D};
+  \draw[thick] (C.north)|-(0,1.2); \draw[thick] (C.south)|-(0,-1.2);
+  \draw[thick] (D.north)|-(7,1.2); \draw[thick] (D.south)|-(7,-1.2);
+  \foreach \x in {2.3,4.7} {\node[host] at (\x,2.1) {X}; \draw[thick] (\x,1.82)--(\x,1.2);}
+  \foreach \x in {1.6,3.5,5.4} {\node[host] at (\x,-2.1) {X}; \draw[thick] (\x,-1.82)--(\x,-1.2);}
+\end{tikzpicture}
+\figcap{After slide 32. C and D are attached to both networks. The upper network (slotted ALOHA) has two other nodes, the lower one (pure ALOHA) has three.}
+\end{center}
+
+\textbf{Setup (slide 33).} D never sends. When C has a message for D, it picks the upper network with probability $p$ (the lower one with probability $1-p$) and then sends with probability $q$.
+In every slot, each X node sends with probability $q$, independently.
+
+\subsection*{Question 1a: a single attempt}
+\textbf{Question.} C has one attempt. What is the probability that the message reaches D?
+
+\begin{enumerate}
+  \item \textbf{Split by the network chosen} (law of total probability):
+        \[ P^{\text{total}}_{\text{suc}} = p\cdot P^{\text{upper}}_{\text{suc}} + (1-p)\cdot P^{\text{lower}}_{\text{suc}}. \]
+  \item \textbf{Upper network (slotted)}. C must send ($q$) and the two X nodes must be silent \emph{in this one slot} ($(1-q)^2$):
+        \[ P^{\text{upper}}_{\text{suc}} = q(1-q)^2. \]
+  \item \textbf{Lower network (pure)}. C must send ($q$), and each of the three X nodes must be silent in \emph{both} of its slots that overlap C's frame ($(1-q)^2$ each):
+        \[ P^{\text{lower}}_{\text{suc}} = q\,\big((1-q)^2\big)^3 = q(1-q)^6. \]
+  \item \textbf{Combine}:
+        \[ \boxed{\ P^{\text{total}}_{\text{suc}} = q\big[p(1-q)^2 + (1-p)(1-q)^6\big]\ } \]
+\end{enumerate}
+
+\begin{example}[Numbers: $p=0.5$, $q=0.2$]
+Upper: $0.2\cdot0.8^2 = 0.128$. Lower: $0.2\cdot0.8^6 = 0.0524$. Total: $0.5\cdot0.128+0.5\cdot0.0524 = 0.090$.
+The lower network is worse for two reasons: it has one more competing node, and pure ALOHA doubles each node's vulnerable window. Each X node there counts like \emph{two} slotted nodes,
+so the lower network behaves like a slotted network with six competitors.
+\end{example}
+
+\begin{pitfall}[C's own $q$]
+C's chance of \emph{sending at all} is $q$, so even an empty network gives success only with probability $q$. That is why $q$ multiplies everything. The best choice of network is the upper one for every $q$, since $(1-q)^2\ge(1-q)^6$; so C should take $p=1$.
+\end{pitfall}
+
+\subsection*{Question 1b: the goodput of the upper network}
+\textbf{Question.} C now tries at the beginning of every slot. What is the goodput of the upper network?
+
+
+Now C is an active node like the others. In each slot it picks a network (upper with probability $p$) and sends with probability $q$. We need the probability that \emph{some} frame on the upper network succeeds.
+
+\begin{enumerate}
+  \item \textbf{C chose the upper network} (probability $p$): there are 3 active nodes (C and the two X's), each sending with probability $q$. Exactly one must send:
+        \[ P^{1}_{\text{suc}} = \binom31 q(1-q)^2 = 3q(1-q)^2. \]
+  \item \textbf{C chose the lower network} (probability $1-p$): only the 2 X nodes compete on the upper network:
+        \[ P^{2}_{\text{suc}} = \binom21 q(1-q) = 2q(1-q). \]
+  \item \textbf{Goodput} = probability of a successful slot (view 1):
+        \[ \boxed{\ \eta^{\text{upper}} = p\cdot3q(1-q)^2 + (1-p)\cdot2q(1-q)\ } \]
+\end{enumerate}
+
+\begin{example}[Numbers: $p=0.5$, $q=0.2$]
+$3\cdot0.2\cdot0.64 = 0.384$ and $2\cdot0.2\cdot0.8 = 0.32$, so $\eta^{\text{upper}} = 0.5\cdot0.384+0.5\cdot0.32 = 0.352$.
+Compare with the slotted formula $nq(1-q)^{n-1}$: with $n=3$ nodes the best $q$ is $1/3$ (goodput $4/9 = 0.444$); with $n=2$ it is $1/2$ (goodput $0.5$). $q = 0.2$ is too timid for such a small network.
+\end{example}
+
+\begin{intuition}[Why 1b counts all nodes and 1a counts only C]
+In 1a we asked whether \emph{C's} message arrives: one specific node. In 1b we ask about the \emph{network's} goodput: a slot is useful if \emph{any} single node succeeds, so we add over the nodes, hence the binomial coefficients $\binom31$ and $\binom21$.
+\end{intuition}
+
+\section{Question 2: slotted and pure nodes on one channel}
+
+\textbf{Setup (slide 42).} There are $2n$ nodes on one channel.
+\begin{itemize}
+  \item Nodes $1,\dots,n$ run \textbf{pure ALOHA} with slots of length $T$ (each on its own clock).
+  \item Nodes $n+1,\dots,2n$ run \textbf{slotted ALOHA} with slots of length $2T$ (synchronized among themselves).
+\end{itemize}
+At the beginning of each of its slots, every node sends with probability $p$, and its message fills the whole slot. So pure nodes send short frames ($T$) and slotted nodes long ones ($2T$).
+
+\begin{center}
+\begin{tikzpicture}[x=1.25cm,y=0.6cm,font=\scriptsize]
+  \node[anchor=east] at (-0.1,1.6) {slotted ($2T$)};
+  \node[anchor=east] at (-0.1,0) {pure ($T$)};
+  \foreach \x in {0,2,4,6} \draw[pgreen,thick] (\x,1.2)--(\x,2.0);
+  \draw[pgreen,thick] (0,1.6)--(6.6,1.6);
+  \fill[pgreen!55,draw=ink] (2.05,1.3) rectangle (3.95,1.9); \node at (3,1.6) {frame};
+  \fill[ppink!25] (1,-0.6) rectangle (4,0.6);
+  \foreach \x in {0.5,1.5,2.5,3.5,4.5,5.5} \draw[pgold,thick] (\x,-0.4)--(\x,0.4);
+  \draw[pgold,thick] (0,0)--(6.6,0);
+  \draw[decorate,decoration={brace,amplitude=4pt,mirror},ppink] (1,-0.75)--(4,-0.75) node[midway,below=4pt]{a pure frame starting in $(T,4T)$ hits it: 3 slot starts per pure node};
+  \draw[arr] (0,-1.9)--(6.8,-1.9) node[right]{time};
+  \foreach \x/\l in {0/0,2/2T,4/4T,6/6T} \node[below] at (\x,-1.9) {$\l$};
+\end{tikzpicture}
+\figcap{Question 2a. A slotted node's frame occupies $[2T,4T]$. A pure node's frame of length $T$ collides with it if it starts anywhere in $(T,4T)$, an interval of length $3T$ that contains exactly three of that pure node's slot starts.}
+\end{center}
+
+\subsection*{Question 2a: a slotted node}
+\textbf{Question.} In a random slot, what is the probability that a node running slotted ALOHA sends successfully?
+
+
+A slotted node succeeds iff \emph{all three} of these hold (they involve different nodes, so they are independent and we multiply):
+\begin{enumerate}
+  \item it sends: $p$;
+  \item the other $n-1$ slotted nodes do not send in this $2T$ slot: $(1-p)^{n-1}$;
+  \item no pure node starts a frame in the $3T$ window of the figure. Each pure node has 3 slot starts there and must skip all three: $(1-p)^3$; for $n$ pure nodes, $(1-p)^{3n}$.
+\end{enumerate}
+\[ \boxed{\ P^{\text{slotted}}_{\text{suc}} = p\,(1-p)^{n-1}(1-p)^{3n}\ } \]
+
+\begin{intuition}[Why 3 and not 2]
+For two frames of the same length $T$, the vulnerable window is $2T$ (frame length plus the length of the other frame). In general it is \hl{(own length) + (other's length)}: here $2T + T = 3T$.
+Long frames are especially exposed to unsynchronized short ones.
+\end{intuition}
+
+\subsection*{Question 2b: a pure node}
+\textbf{Question.} In a random slot, what is the probability that a node running pure ALOHA sends successfully?
+
+
+The pure node's frame has length $T$. The other pure nodes are handled as in plain pure ALOHA: $(1-p)^{2(n-1)}$. The slotted nodes depend on where the frame falls relative to the $2T$ grid. There are two cases (slides 44--46):
+
+\begin{center}
+\begin{tikzpicture}[x=1.25cm,y=0.6cm,font=\scriptsize]
+  \foreach \x in {0,2,4,6} \draw[pgreen,thick] (\x,0.6)--(\x,1.4);
+  \draw[pgreen,thick] (0,1)--(6.4,1);
+  \node[anchor=east] at (-0.1,1) {slotted grid};
+  \fill[pcyan!50,draw=ink] (2.5,-0.3) rectangle (3.5,0.3); \node[above] at (3,0.3) {case 1};
+  \fill[pgold!60,draw=ink] (3.5,-0.3) rectangle (4.5,0.3); \node[above] at (4,0.3) {case 2};
+  \draw[arr] (0,-0.8)--(6.6,-0.8) node[right]{time};
+  \foreach \x/\l in {0/0,2/2T,4/4T,6/6T} \node[below] at (\x,-0.8) {$\l$};
+\end{tikzpicture}
+\figcap{Case 1: the pure frame lies inside one $2T$ slot. Case 2: it straddles the boundary between two $2T$ slots.}
+\end{center}
+
+\textbf{Case 1, inside one $2T$ slot}: no slotted node may send in that one slot, $(1-p)^n$:
+\[ P_1 = p\,(1-p)^n(1-p)^{2(n-1)}. \]
+\textbf{Case 2, straddling two $2T$ slots}: no slotted node may send in either, $(1-p)^{2n}$:
+\[ P_2 = p\,(1-p)^{2n}(1-p)^{2(n-1)}. \]
+
+\textbf{Combining the cases} (the slides stop before this). Shift the pure node's slots by any offset $0<\varphi<T$ against the $2T$ grid: its slots then alternate between case 1 and case 2. So \hl{exactly half} of its slots are of each kind, and a random slot gives
+\[ \boxed{\ P^{\text{pure}}_{\text{suc}} = \tfrac12P_1 + \tfrac12P_2 = \tfrac12\,p\,(1-p)^{2(n-1)}\big[(1-p)^n + (1-p)^{2n}\big]\ } \]
+
+\begin{example}[Numbers: $n=5$, $p=0.1$]
+Slotted node (2a): $0.1\cdot0.9^4\cdot0.9^{15} = 0.0135$. Pure node (2b): $P_1 = 0.1\cdot0.9^5\cdot0.9^8 = 0.0254$, $P_2 = 0.1\cdot0.9^{10}\cdot0.9^8 = 0.0150$, average $0.0202$.
+A pure node succeeds more often than a slotted one: its short frame has a smaller vulnerable window.
+\end{example}
+
+\subsection*{Question 2c: everybody synchronized}
+\textbf{Question.} The pure nodes switch to slotted ALOHA with slots of length $T$, synchronized with the $2T$ slots. What is the goodput of the network?
+
+
+Now every $2T$ slot of the long-frame nodes is split into two aligned $T$ slots of the short-frame nodes. Look at one $2T$ window. Write
+\[ s = np(1-p)^{n-1}\ \ (\text{exactly one of $n$ nodes sends}),\qquad z = (1-p)^n\ \ (\text{none of $n$ nodes sends}). \]
+The window can contain these successful outcomes (slides 47--49):
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{>{\columncolor{border}}c p{6.2cm} c c}
+\thd{} & \cellcolor{border}\thd{OUTCOME} & \cellcolor{border}\thd{PROBABILITY} & \cellcolor{border}\thd{USEFUL TIME}\\
+\rowcolor{surface} \cellcolor{border}\color{surface}A & one long frame succeeds: exactly one long node sends, no short node sends in either half & $s\,z^2$ & $2T$\\
+\rowcolor{surface2} \cellcolor{border}\color{surface}B & short success in the first half only: no long node sends, exactly one short node in half 1, not exactly one in half 2 & $s\,z\,(1-s)$ & $T$\\
+\rowcolor{surface} \cellcolor{border}\color{surface}C & short success in the second half only (same as B) & $s\,z\,(1-s)$ & $T$\\
+\rowcolor{surface2} \cellcolor{border}\color{surface}D & short successes in both halves: no long node, exactly one short node in each half & $s^2z$ & $2T$\\
+\end{tabular}
+\end{center}
+Dividing useful time by $2T$ gives the slide's answer:
+\[ \eta = A + \tfrac12B + \tfrac12C + D. \]
+
+\textbf{Simplifying.} Substitute and collect: $\eta = sz^2 + sz(1-s) + s^2z = sz^2 + sz$, so
+\[ \boxed{\ \eta = s\,z\,(1+z) = np(1-p)^{2n-1}\big(1+(1-p)^n\big)\ } \]
+
+\begin{intuition}[A shortcut: linearity of expectation]
+We can skip the four cases. Useful time in the window = (useful time from long frames) + (useful time in half 1) + (useful time in half 2), and \emph{expectations add even when the parts are dependent}.
+\begin{itemize}
+  \item Long: $2T$ with probability $sz^2$, i.e.\ a fraction $sz^2$ of the window.
+  \item Each half: $T$ with probability $sz$ (exactly one short node, no long node), i.e.\ $\frac12sz$ of the window per half.
+\end{itemize}
+Total: $sz^2 + 2\cdot\frac12sz = sz(1+z)$. Same answer, no case analysis.
+\end{intuition}
+
+\begin{example}[Did synchronizing help? $n=5$, $p=0.1$]
+\textbf{After} (2c): $s = 5\cdot0.1\cdot0.9^4 = 0.328$, $z = 0.9^5 = 0.590$, so $\eta = 0.328\cdot0.590\cdot1.590 = 0.308$.\\
+\textbf{Before} (2a, 2b): per $2T$ window, the $n$ long nodes deliver on average $n\cdot P^{\text{slotted}}_{\text{suc}}\cdot2T$ and the $n$ short nodes, each with 2 slots, $n\cdot2\cdot P^{\text{pure}}_{\text{suc}}\cdot T$. Dividing by $2T$:
+$\eta = n\,P^{\text{slotted}}_{\text{suc}} + n\,P^{\text{pure}}_{\text{suc}} = 5\cdot0.0135 + 5\cdot0.0202 = 0.169$.\\
+Aligning the short nodes' slots nearly \hl{doubles} the goodput, the same factor of 2 as between pure and slotted ALOHA. Optimizing $p$ for $n=100$ (numerically): about $0.20$ before and $0.30$ after.
+Even after, the mixed network stays below $1/e$: a long frame needs \emph{both} halves free of short frames.
+\end{example}
+
+% =================================================================
 \parttitle{WEEK 02}{Practice Problems and Summary}
 % =================================================================
 
@@ -1103,6 +1623,44 @@ A, B and C are in a line; A and C are each 80\,m from B, and the radio range is 
 \textbf{Solution.} A and C are 160\,m apart, beyond the range: they are hidden from each other, so carrier sensing fails. RTS/CTS: B's CTS reaches both, so the station that did not win the CTS defers.
 \end{example}
 
+\subsection*{Recitation problems}
+
+\begin{example}[P11: Goodput in bits per second]
+A slotted ALOHA channel has $B = 1$\,Mbps and frames of $L = 1000$ bits. There are 4 nodes with $p = 0.25$. (a) Slot length? (b) Goodput? (c) Useful bit rate? (d) Average time between successful frames?
+
+\textbf{Solution.} (a) $T = L/B = 1$\,ms. (b) $\eta = 4\cdot0.25\cdot0.75^3 = 0.422$. (c) $0.422\times1$\,Mbps $=422$\,kbps. (d) View 2: $T/\eta = 1/0.422 = 2.37$\,ms.
+\end{example}
+
+\begin{example}[P12: Which layer?]
+Place in the OSI model: TLS encryption, TCP acknowledgements, Ethernet's binary exponential backoff, choosing a route between two cities.
+
+\textbf{Solution.} TLS: presentation (6) in OSI; in the Internet stack the application provides it. TCP ACKs: transport (4). Backoff: data link (2), MAC sub-layer. Routing: network (3).
+\end{example}
+
+\begin{example}[P13: Poisson load]
+A slotted ALOHA channel carries on average $G = 0.6$ attempts per slot. (a) Fraction of slots that are successful, empty and collisions? (b) Same load on pure ALOHA?
+
+\textbf{Solution.} (a) Success $0.6e^{-0.6} = 0.329$; empty $e^{-0.6} = 0.549$; collision $1-0.329-0.549 = 0.122$. (b) $0.6e^{-1.2} = 0.181$, almost exactly the pure maximum $1/(2e)=0.184$, because $G=0.6$ is close to $G^*=0.5$.
+\end{example}
+
+\begin{example}[P14: Question 1 variant]
+In Question 1, let the lower network also run \emph{slotted} ALOHA. With $p=0.5$, $q=0.2$, what is C's one-shot success probability now?
+
+\textbf{Solution.} Lower: $q(1-q)^3 = 0.2\cdot0.512 = 0.1024$. Total: $0.5\cdot0.128 + 0.5\cdot0.1024 = 0.115$, up from $0.090$: synchronizing the lower network halves each X node's vulnerable window.
+\end{example}
+
+\begin{example}[P15: Vulnerable windows of mixed lengths]
+A pure ALOHA channel carries frames of length $T$ and of length $3T$. How long is the vulnerable window of a $3T$ frame against $T$ frames, and of a $T$ frame against $3T$ frames?
+
+\textbf{Solution.} (Own length) + (other's length) in both cases: $3T + T = 4T$. The window is the same, but a long frame occupies more of the channel each time it collides.
+\end{example}
+
+\begin{example}[P16: Question 2c with numbers]
+In Question 2c, take $n = 10$, $p = 0.05$. Find $\eta$.
+
+\textbf{Solution.} $s = 10\cdot0.05\cdot0.95^9 = 0.315$, $z = 0.95^{10} = 0.599$. $\eta = sz(1+z) = 0.315\cdot0.599\cdot1.599 = 0.302$.
+\end{example}
+
 \section{Cheat sheet}
 
 \begin{formula}[Week 02 on one page]
@@ -1119,6 +1677,19 @@ A, B and C are in a line; A and C are each 80\,m from B, and the radio range is 
   \item Ethernet: after the $m$-th collision $K\in\{0,\dots,2^m-1\}$ (capped at $m=10$), wait $K\cdot512$ bit times; jam 48 bits; bit time $0.1\,\mu$s at 10\,Mbps.
   \item MAC address: 48 bits, flat, portable, IEEE gives 24-bit prefixes. IP address: hierarchical, not portable.
   \item 802.11: no CD (weak received signal, hidden terminal, fading) $\Rightarrow$ CSMA/CA: DIFS, random backoff frozen while busy, ACK after SIFS; RTS/CTS reserves the channel.
+\end{itemize}
+\end{formula}
+
+\begin{formula}[Recitation 2 on one page]
+\begin{itemize}
+  \item OSI: Physical (bit) / Data link (frame) / Network (packet) / Transport (segment) / Session / Presentation / Application. Internet: layers 5--7 merged into the application. Wi-Fi and Ethernet are layers 1 \emph{and} 2; MAC is a sub-layer of 2.
+  \item $T = L/B$. Throughput: fraction of time anything is sent. Goodput $\eta$: fraction of time spent on \emph{successful} sends. $\times B$ gives bits/s.
+  \item Two views: $\eta = \E[T_{\text{suc}}]/T = P_{\text{suc}}$ (one slot), or $T/(T\cdot\E[\text{Geo}(P_{\text{suc}})]) = P_{\text{suc}}$ (wait for success).
+  \item Binomial: slotted $np(1-p)^{n-1}$, $p^*=1/n$, $\to1/e$. Pure $np(1-p)^{2(n-1)}$, $p^*=1/(2n-1)$, $\to1/(2e)$.
+  \item Poisson ($G$ attempts per slot): slotted $Ge^{-G}$, max $1/e$ at $G=1$; pure $Ge^{-2G}$, max $1/(2e)$ at $G=\frac12$. Binomial with $p=G/n$, $n\to\infty$.
+  \item Vulnerable window (pure) = own frame length + other frame length: $2T$ for equal frames.
+  \item Pure node vs.\ slotted grid of $2T$: half its frames inside one slot, half straddling two.
+  \item Exam tricks: split by cases with total probability; ``one specific node'' $\to$ no $\binom n1$, ``any node'' $\to$ multiply by $n$; use linearity of expectation to avoid case analysis.
 \end{itemize}
 \end{formula}
 
