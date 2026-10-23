@@ -22,6 +22,8 @@
   \addtocontents{toc}{\protect\tocpart{#1}}}
 \newcommand{\slidefig}[2]{\begin{center}\fcolorbox{border}{white}{\includegraphics[width=#1]{#2}}\end{center}}
 \newcommand{\E}{\mathbb{E}}
+\newcommand{\Var}{\operatorname{Var}}
+\newcommand{\cmpl}[1]{\overline{#1}}
 \newcommand{\PROP}{\text{PROP}}
 \newcommand{\TRANSP}{\text{TRANSP}}
 \DeclareRobustCommand{\src}[1]{{\ttfamily\scriptsize\textcolor{muted}{[#1]}}}
@@ -40,8 +42,8 @@
 \begin{plainbox}
 \textbf{What this week contains.} Part A is the lecture (``2 layers+broadcast'', 103 slides), written as a textbook chapter. Part B is Recitation 2 (``ALOHA'', 50 slides):
 the OSI model, goodput, slotted and pure ALOHA in the binomial and Poisson models, and two exam-style questions, all solved step by step. Practice problems and a cheat sheet follow.
-The lecture's ``Probability 101'' block (slides 49--67) repeats Tutorial 1, which Week 01 Part B solves in full. Here it gets a short recap,
-plus the one new mathematical tool that the MAC analysis needs, the limit $(1-1/N)^N\to1/e$.
+The lecture's ``Probability 101'' block (slides 49--67) is covered here in compact form, with all three examples solved; Week 01 Part B has the longer version.
+It is followed by the one new tool that the MAC analysis needs, the limit $(1-1/N)^N\to1/e$.
 \end{plainbox}
 
 {\ttfamily\small\color{pgreen}CONTENTS}
@@ -556,29 +558,80 @@ If two colliding nodes both waited the \emph{same} fixed time and tried again, t
 \emph{independently at random}, so with luck one of them goes first and gets through \src{KR 6.3.2}.
 \end{intuition}
 
-\section{Probability toolkit (recap of slides 49--67)}
+\section{Probability 101 (slides 49--67)}
 
-The lecture now pauses for ``Probability 101'': sample spaces, events, probability functions, conditional probability, Bayes, random variables,
-expectation, the four discrete distributions, and Examples I--III. \textbf{Week 01 Part B covers all of these in full}, including Example II (good and bad packets)
-and Example III (the chain of links). Here are only the facts that the MAC analysis below uses.
+The lecture now pauses for the probability that the MAC analysis needs. (Week 01 Part B has a longer version.)
 
-\begin{formula}[What we need]
+\begin{defn}[Sample space, event, probability function (slides 50--52)]
 \begin{itemize}
-  \item \textbf{Independent events multiply}: $P(A\cap B)=P(A)P(B)$. So ``$N-1$ independent nodes all stay silent, each with probability $1-p$'' has probability $(1-p)^{N-1}$.
-  \item \textbf{Disjoint events add}: $P(A\cup B)=P(A)+P(B)$.
-  \item \textbf{Exactly one success among $N$}: $\binom N1p(1-p)^{N-1}=Np(1-p)^{N-1}$, the binomial probability $P(X=1)$ for $X\sim\text{Bin}(N,p)$.
-  \item \textbf{Geometric}: if each try succeeds with probability $q$, the number of tries is $\text{Geo}(q)$, with mean $1/q$. The expected number of \emph{failures} before the success is $1/q-1=(1-q)/q$.
+  \item The \term{sample space} $\Omega$ is the set of all outcomes $\omega$. Coin: $\{H,T\}$. Die: $\{1,\dots,6\}$.
+  \item An \term{event} is a subset $A\subseteq\Omega$. $A,B$ are \term{disjoint} if $A\cap B=\emptyset$ (die: $\{1,2\}$, $\{4\}$). $\cmpl A=\Omega\setminus A$ is the \term{complement}.
+  \item A \term{probability function} satisfies $P(A)\in[0,1]$, $P(\Omega)=1$, and $P(\bigcup_iA_i)=\sum_iP(A_i)$ for disjoint $A_i$.
+\end{itemize}
+\end{defn}
+
+\begin{formula}[Rules (slides 53--55)]
+\begin{itemize}
+  \item \textbf{Conditional}: $P(A\mid B)=\dfrac{P(A\cap B)}{P(B)}$, the probability of $A$ \emph{given} that $B$ happened. Die is even; is it 2? $\frac{1/6}{1/2}=\frac13$.
+  \item \textbf{Independent}: $P(A\cap B)=P(A)P(B)$, i.e.\ $P(A\mid B)=P(A)$. So ``$N-1$ independent nodes all stay silent, each with probability $1-p$'' has probability $(1-p)^{N-1}$.
+  \item \textbf{Union}: $P(A\cup B)\le P(A)+P(B)$, with equality when disjoint.
+  \item \textbf{Total probability}: for a partition $B_1,\dots,B_n$ of $\Omega$, $\;P(D)=\sum_iP(D\mid B_i)P(B_i)$.
+  \item \textbf{Bayes}: $P(B_j\mid D)=\dfrac{P(D\mid B_j)P(B_j)}{P(D)}=\dfrac{P(D\mid B_j)P(B_j)}{\sum_iP(D\mid B_i)P(B_i)}$.
 \end{itemize}
 \end{formula}
 
-\begin{example}[Example I from the slides: 50 components]
-Communication uses 50 components, each working 99\% of the time (independently). Failure probability $=1-0.99^{50}\approx39.5\%$.
+\begin{pitfall}[Disjoint $\neq$ independent]
+Disjoint events (with positive probabilities) are never independent: if one happens, the other certainly did not. Disjoint events \emph{add}; independent events \emph{multiply}.
+\end{pitfall}
+
+\begin{example}[Example I (slide 56): 50 components]
+Communication uses 50 components, each working 99\% of the time (independently). Success needs all 50: failure probability $=1-0.99^{50}\approx39.5\%$.
 With 99.9\%: $1-0.999^{50}\approx4.9\%$. \hl{The system must be designed to expect failure.}
 \end{example}
 
+\begin{example}[Example II (slides 57--59): good and bad packets]
+Good packets survive $T$ seconds with probability $e^{-T}$, bad ones with probability $e^{-1000T}$. A packet is good with probability $p$.
+Let $A$ = ``survived $t$ seconds'', $B$ = ``good''.
+\begin{enumerate}
+  \item \textbf{Survival} (total probability over $B,\cmpl B$): $P(A)=e^{-t}p+e^{-1000t}(1-p)$.
+  \item \textbf{Survived, so good?} (Bayes): $P(B\mid A)=\dfrac{e^{-t}p}{e^{-t}p+e^{-1000t}(1-p)}$.
+\end{enumerate}
+With $p=0.5$ and $t=5$\,ms: $P(B\mid A)=0.993$. Bad packets die within milliseconds, so survival is strong evidence of a good packet.
+\end{example}
+
+\begin{defn}[Random variable, expectation (slides 60--62)]
+A \term{random variable} is a function $X:\Omega\to\mathbb R$, discrete (a count) or continuous (a time); $P(X=x)=P(\{\omega:X(\omega)=x\})$.
+Coin: $X(H)=1$, $X(T)=0$; fair: $P(X=1)=\frac12$; biased: $P(X=1)=b$.
+The \term{expected value} is the long-run average: $\E X=\sum_xx\,P(X=x)$. It is linear, $\E(\sum_ia_iX_i)=\sum_ia_i\E X_i$ (always), and $\Var X=\E\big((X-\E X)^2\big)$.
+\end{defn}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\small
+\begin{tabular}{>{\columncolor{border}}l L{2.6cm} L{3.1cm} L{3.1cm} L{2.8cm}}
+ & \cellcolor{border}\thd{BERNOULLI} & \cellcolor{border}\thd{BINOMIAL} & \cellcolor{border}\thd{GEOMETRIC} & \cellcolor{border}\thd{POISSON}\\
+\rowcolor{surface}\cellcolor{border}\color{surface}Story & one trial: success or not & successes in $n$ independent trials & trials until the first success & events in a period of time\\
+\rowcolor{surface2}\cellcolor{border}\color{surface}$P(X=k)$ & $P(1)=p$ & $\binom nkp^k(1-p)^{n-k}$ & $(1-p)^{k-1}p$, $k\ge1$ & $e^{-\lambda}\lambda^k/k!$\\
+\rowcolor{surface}\cellcolor{border}\color{surface}Notation & $\text{Ber}(p)$ & $\text{Bin}(n,p)$ & $\text{Geo}(p)$ & $\text{Pois}(\lambda)$\\
+\rowcolor{surface2}\cellcolor{border}\color{surface}$\E X$ & $p$ & $np$ & $1/p$ & $\lambda$\\
+\rowcolor{surface}\cellcolor{border}\color{surface}$\Var X$ & $p(1-p)$ & $np(1-p)$ & $(1-p)/p^2$ & $\lambda$\\
+\end{tabular}
+\figcap{Slide 63. Used below: ``exactly one of $N$ transmits'' is $P(X=1)=Np(1-p)^{N-1}$ for $X\sim\text{Bin}(N,p)$; a geometric $\text{Geo}(q)$ has $1/q-1=(1-q)/q$ \emph{failures} before the success, on average.}
+\end{center}
+
+\begin{example}[Example III (slides 64--67): a chain of $n$ links]
+S sends to D over $n$ links ($n-1$ relays); each link fails independently with probability $p$.
+\begin{enumerate}
+  \item \textbf{D gets the packet}: all $n$ links work, $(1-p)^n$. ($n=10$, $p=0.1$: $0.35$.)
+  \item \textbf{S resends until D gets it}: tries $X\sim\text{Geo}\big((1-p)^n\big)$, so $\E X=1/(1-p)^n$. ($\approx2.87$.)
+  \item \textbf{Every node resends to its next hop until it gets through}: only S's single send on the first link can still fail, so the success probability is $1-p$ ($0.9$),
+        and each node needs $X\sim\text{Geo}(1-p)$ sends for its hop, $\E X=1/(1-p)$ ($\approx1.11$).
+\end{enumerate}
+\end{example}
+
 \begin{pitfall}[Slide 67: ``the probability to success drops to $(1-p)$'']
-In Example III (Week 01, Question 3) the success probability goes from $(1-p)^n$ to $(1-p)$. Since $1-p>(1-p)^n$ for $n\ge2$, it \textbf{rises}, not ``drops''.
-Also, the slide's $\E X=1/(1-p)$ counts the sends needed to cross \emph{one} hop. Crossing all $n$ hops hop by hop takes $n/(1-p)$ link transmissions on average.
+Since $1-p>(1-p)^n$ for $n\ge2$, the success probability \textbf{rises}, not ``drops''.
+Also, $\E X=1/(1-p)$ counts the sends needed to cross \emph{one} hop. Crossing all $n$ hops takes $n/(1-p)$ link transmissions on average ($11.1$ in the example).
 \end{pitfall}
 
 \subsection{The new tool: $(1-1/N)^{N}\to 1/e$}
@@ -792,7 +845,7 @@ If A had already finished at $t<2\,\PROP$, it would wrongly believe the packet h
 \begin{example}[Why Ethernet waits in units of 512 bits]
 Classic 10\,Mbps Ethernet uses 512 bit times as its basic unit (slide 91). At 10\,Mbps one bit takes $0.1\,\mu$s, so 512 bits take $51.2\,\mu$s.
 A frame of at least 512 bits (64 bytes) therefore lasts at least $51.2\,\mu$s, which covers a round trip $2\,\PROP$ of up to $51.2\,\mu$s. At $2\times10^8$\,m/s
-that is about 5\,km of round trip, so about 2.5\,km of cable end to end (in practice less, because repeaters add delay).
+that is about 10\,km of round trip, so about 5\,km of cable end to end. The standard allows only 2.5\,km, because repeaters and transceivers add delay too.
 \end{example}
 
 \subsection{The goodput of CSMA/CD (slides 83--88)}
