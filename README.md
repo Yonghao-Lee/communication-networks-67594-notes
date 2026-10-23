@@ -19,6 +19,8 @@ New weeks are added as the course goes on.
 
 **Formula sheet:** [**formula_sheet.pdf**](formula_sheet.pdf) collects every formula from the lectures and recitations, each with a one-line meaning, plus a list of the mistakes in each week's slides and their corrections. It is updated every week; use it while doing exercises.
 
+**Exercises:** [**exercises.pdf**](exercises.pdf) has practice questions for each week (Kurose & Ross problems reworded, variants of the recitation questions with new numbers, and new ones), graded by difficulty, with full solutions on separate pages. Updated every week.
+
 ## How each week is organised
 
 1. **Part A, the lecture**, rewritten as a textbook chapter.
