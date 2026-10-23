@@ -17,6 +17,8 @@ Textbook-style study notes for **Introduction to Communication Networks** (HUJI 
 
 New weeks are added as the course goes on.
 
+**Formula sheet:** [**formula_sheet.pdf**](formula_sheet.pdf) collects every formula from the lectures and recitations, each with a one-line meaning, plus a list of the mistakes in each week's slides and their corrections. It is updated every week; use it while doing exercises.
+
 ## How each week is organised
 
 1. **Part A, the lecture**, rewritten as a textbook chapter.

@@ -1,0 +1,239 @@
+% ===================================================================
+% Formula sheet -- Introduction to Communication Networks (HUJI 67594)
+% One block per week (lecture + tutorial/recitation). Formulas with one-line
+% explanations, then a "Slide corrections" box. Update every week: add a
+% \weekbar and a multicols block before \end{document}.
+% Build: pdflatex -interaction=nonstopmode formula_sheet.tex
+% ===================================================================
+\input{preamble}
+\newgeometry{a4paper,margin=1.3cm,top=1.6cm,bottom=1.7cm,headsep=0.5cm}
+\renewcommand{\headleft}{67594 \textperiodcentered\ FORMULA SHEET}
+\renewcommand{\headright}{INTRODUCTION TO COMMUNICATION NETWORKS}
+\setlength{\parskip}{0.25em}
+\setlength{\columnsep}{0.6cm}
+\setlength{\columnseprule}{0.4pt}
+\raggedcolumns
+\renewcommand{\columnseprulecolor}{\color{border!40}}
+\setlist[itemize]{label={\textcolor{pgreen}{\tiny$\blacksquare$}},leftmargin=1.0em,itemsep=0.1em,topsep=0.15em,parsep=0pt}
+\setlist[enumerate]{label={\textcolor{pgreen}{\ttfamily\arabic*.}},leftmargin=1.3em,itemsep=0.1em,topsep=0.15em,parsep=0pt}
+
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Var}{\operatorname{Var}}
+\newcommand{\cmpl}[1]{\overline{#1}}
+\newcommand{\PROP}{\text{PROP}}
+\newcommand{\TRANSP}{\text{TRANSP}}
+
+% compact headings
+\titleformat{\section}{\sffamily\bfseries\normalsize\color{pgold}}{}{0pt}{}[\vspace{-2pt}{\color{border}\titlerule[0.8pt]}]
+\titlespacing*{\section}{0pt}{0.7em}{0.35em}
+\titleformat{\subsection}{\ttfamily\small\color{pcyan}}{}{0pt}{>\,}
+\titlespacing*{\subsection}{0pt}{0.45em}{0.15em}
+
+% full-width week bar
+\newcommand{\weekbar}[2]{%
+  \par\medskip\noindent\colorbox{border}{\parbox{\dimexpr\linewidth-2\fboxsep}{%
+  \color{surface}\sffamily\bfseries\large WEEK #1\hfill{\normalsize\mdseries #2}}}\par\smallskip}
+
+% compact boxes (corrections box sits full width below each week's columns)
+\tcbset{mini/.style={enhanced jigsaw,breakable,sharp corners,boxrule=0.8pt,left=3pt,right=3pt,top=2pt,bottom=2pt,
+  before skip=0.4em,after skip=0.4em,fonttitle=\ttfamily\scriptsize\bfseries,colback=surface,
+  before upper={\setlength{\parskip}{0.15em}}}}
+\newtcolorbox{fixes}[1][]{mini,colframe=pgold,colbacktitle=pgold,title={SLIDE CORRECTIONS#1}}
+\newtcolorbox{recipe}[1][]{mini,colframe=pcyan,colbacktitle=pcyan,title={#1}}
+% \fix{where}{what the slide says}{what is correct}
+\newcommand{\fix}[3]{\item[\textcolor{pgold}{\scriptsize$\blacktriangleright$}] {\ttfamily\scriptsize\textcolor{muted}{#1}}\ #2 \textcolor{pgreen}{$\Rightarrow$}\ #3}
+
+\begin{document}
+\small
+
+{\sffamily\bfseries\fontsize{22}{26}\selectfont\color{pgold}Formula Sheet}\hfill{\ttfamily\small\color{pgreen}HUJI 67594 \textperiodcentered\ updated weekly}\par
+\vspace{2pt}{\color{border}\rule{\linewidth}{1.4pt}}\par
+{\footnotesize\color{muted}Every formula has a one-line meaning. Gold boxes list the mistakes in that week's slides and the correct version. The full explanations are in \texttt{weekNN.pdf}.}
+
+% =================================================================
+\weekbar{01}{Lecture 1: Introduction \textperiodcentered\ Tutorial 1: Probability}
+% =================================================================
+\begin{multicols}{2}
+
+\section{Delay}
+\begin{itemize}
+  \item $d_{\text{nodal}}=d_{\text{proc}}+d_{\text{queue}}+d_{\text{trans}}+d_{\text{prop}}$: the four delays at each hop.
+  \item $d_{\text{trans}}=L/R$: push $L$ bits onto a link of $R$ bit/s. Depends on size and rate, \hl{not distance}.
+  \item $d_{\text{prop}}=d/s$: one bit travels distance $d$ at speed $s$ ($\approx2\times10^8$ m/s in fibre $=\frac23c$). Depends on distance, \hl{not size}.
+  \item Speed-of-light bound: Jerusalem--NY $9164/3\times10^5\approx30.6$\,ms; in practice $\ge70$\,ms one way.
+  \item CPU cycles wasted per RTT $=f_{\text{CPU}}\times\text{RTT}$ (3\,GHz $\times$ 140\,ms $=4.2\times10^8$).
+\end{itemize}
+
+\section{Circuit switching}
+\begin{itemize}
+  \item Phases: establish (costs $\ge1$ RTT) $\to$ transfer $\to$ teardown. Resources reserved; unused slots are lost.
+  \item TDM/FDM with $n$ slots or bands: each circuit gets $R/n$. File time $=$ setup $+\,L/(R/n)$, independent of the number of links.
+  \item Must reserve the peak $P$; utilization $=A/P$ ($A$ = average rate). Voice $\approx1/3$, bursty data $\le1\%$.
+\end{itemize}
+
+\section{Packet switching}
+\begin{itemize}
+  \item Store-and-forward, $N$ links, no queuing: one packet $N\frac LR$; $K$ packets back to back $(N+K-1)\frac LR$ (pipeline).
+  \item Traffic intensity $La/R$ ($a$ = packets/s): must be $<1$, otherwise the queue grows without bound; near 1 the delay is huge.
+  \item Statistical multiplexing: $N$ independent flows of mean $A$ need $\approx NA$, not $NP$. Spread: std $\propto\sqrt N$, std/mean $\propto1/\sqrt N$ (LLN). Fails if bursts are correlated.
+  \item Users on a link: $X\sim\text{Bin}(n,q)$ active; overload probability $P(X>R/r)$ (35 users, $q=0.1$, 10 fit: $\approx0.0004$).
+\end{itemize}
+
+\section{Probability rules}
+\begin{itemize}
+  \item $P(A\mid B)=P(A\cap B)/P(B)$: $B$ known, ask about $A$.
+  \item Independent: $P(A\cap B)=P(A)P(B)$ (\hl{multiply}). Disjoint: $P(A\cup B)=P(A)+P(B)$ (\hl{add}). Disjoint $\neq$ independent.
+  \item Union bound: $P(A\cup B)\le P(A)+P(B)$; exactly: $P(A)+P(B)-P(A\cap B)$.
+  \item Total probability: $P(D)=\sum_iP(D\mid B_i)P(B_i)$, $\{B_i\}$ a partition.
+  \item Bayes: $P(B_j\mid D)=\dfrac{P(D\mid B_j)P(B_j)}{\sum_iP(D\mid B_i)P(B_i)}$.
+  \item ``At least one of $n$ fails'' $=1-(1-p)^n$ (50 parts at 99\%: 39.5\%).
+\end{itemize}
+
+\section{Random variables}
+\begin{itemize}
+  \item $\E X=\sum x\,P(X=x)$; $\E(\sum a_iX_i)=\sum a_i\E X_i$ \hl{always} (even dependent). $\Var X=\E X^2-(\E X)^2$.
+  \item Indicator: $\E[I_A]=P(A)$.
+\end{itemize}
+\begin{center}\footnotesize
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{@{}l l c c@{}}
+\toprule
+ & $P(X=k)$ / density & $\E X$ & $\Var X$\\\midrule
+Ber$(p)$ & $P(1)=p$ & $p$ & $p(1-p)$\\
+Bin$(n,p)$ & $\binom nkp^k(1-p)^{n-k}$ & $np$ & $np(1-p)$\\
+Geo$(p)$ & $(1-p)^{k-1}p,\ k\ge1$ & $\frac1p$ & $\frac{1-p}{p^2}$\\
+Pois$(\lambda)$ & $e^{-\lambda}\lambda^k/k!$ & $\lambda$ & $\lambda$\\\midrule
+Uni$(a,b)$ & $\frac1{b-a}$ on $[a,b]$ & $\frac{a+b}2$ & $\frac{(b-a)^2}{12}$\\
+Exp$(\lambda)$ & $\lambda e^{-\lambda x}$, $P(X>x)=e^{-\lambda x}$ & $\frac1\lambda$ & $\frac1{\lambda^2}$\\
+$N(\mu,\sigma^2)$ & $\frac{1}{\sqrt{2\pi}\sigma}e^{-(x-\mu)^2/2\sigma^2}$ & $\mu$ & $\sigma^2$\\\bottomrule
+\end{tabular}
+\end{center}
+\begin{itemize}
+  \item Geometric: \emph{tries} until success, mean $1/p$; \emph{failures} before success, mean $(1-p)/p$.
+  \item Bin$(n,p)\approx$ Pois$(np)$ when $n$ is large and $p$ small.
+  \item Memoryless: $P(X>s+t\mid X>t)=P(X>s)$. Only Exp (continuous) and Geo (discrete).
+\end{itemize}
+
+\section{Poisson process (rate $\lambda$)}
+\begin{itemize}
+  \item Independent increments; count in any interval of length $t$ is Pois$(\lambda t)$; no bunching.
+  \item Inter-arrival times $X_i$ (time \emph{since the previous} arrival) are i.i.d.\ Exp$(\lambda)$; epochs $S_i=X_1+\dots+X_i$.
+  \item Exactly one arrival in $T$: $\lambda T e^{-\lambda T}$, maximal ($=1/e$) at $\lambda T=1$ (this is slotted ALOHA, week 2).
+\end{itemize}
+
+\section{Worked patterns}
+\begin{itemize}
+  \item Chain of $n$ links, each fails w.p.\ $p$: reach D w.p.\ $(1-p)^n$; end-to-end resend: $\E[\text{tries}]=1/(1-p)^n$; hop-by-hop: $1/(1-p)$ per hop, $n/(1-p)$ in total.
+  \item Good/bad packet survival $e^{-t}$ / $e^{-1000t}$: $P(\text{surv})=pe^{-t}+(1-p)e^{-1000t}$; $P(\text{good}\mid\text{surv})$ by Bayes.
+\end{itemize}
+
+\end{multicols}
+\begin{fixes}[ \textperiodcentered\ WEEK 01]
+\begin{itemize}
+  \fix{L1, Strowger}{``invents the telephone system''}{he invented the \emph{automatic switch}.}
+  \fix{L1, buffers}{``even with infinite buffers packets are lost''}{infinite buffers never drop; the delay grows without bound, so packets arrive too late.}
+  \fix{T1, $P$}{$P:X\to[0,1]$ on elements}{$P$ is defined on \emph{events} (subsets of $\Omega$).}
+  \fix{T1, conditional}{``$B$ occurs if we know $A$'' for $P(A\mid B)$}{$B$ is known, we ask about $A$.}
+  \fix{T1, Bayes}{$P(A\mid D)=\frac{P(D\mid A)P(A)}{\sum_iP(D\mid B_i)P(B_i)}$}{valid only if $A$ is one of the $B_i$.}
+  \fix{T1, RV}{$\{\omega\subseteq\Omega\}$; biased coin $I_X=b$}{$\omega\in\Omega$; $X(H)=1$ with $P(X=1)=b$.}
+  \fix{T1, chain}{links ``disjoint'', ``union'' $=$ product}{links \emph{independent}; the product is the \emph{intersection}.}
+  \fix{T1, Gaussian}{$\Var=\sigma$}{$\Var=\sigma^2$.}
+  \fix{T1, Poisson}{$X_i$ = time for the $i$-th packet}{time since the \emph{previous} arrival.}
+\end{itemize}
+\end{fixes}
+
+% =================================================================
+\weekbar{02}{Lecture 2: Layering \& Broadcast \textperiodcentered\ Recitation 2: ALOHA}
+% =================================================================
+\begin{multicols}{2}
+
+\section{Layers}
+\begin{itemize}
+  \item 5 layers (bottom up): Physical (bits) / Link (frames, local MAC addr.) / Network (packets, global addr., routing, \hl{only IP}) / Transport (segments, processes; TCP, UDP) / Application (messages).
+  \item Routers: layers 1--3. Hosts: all 5.
+  \item OSI: 7 layers, adding Session (5) and Presentation (6). In the Internet, OSI 5--7 are all ``application''.
+  \item Layer = service (what) + interface (how to access) + protocol (how peers talk). Protocol = syntax (format, order) + semantics (meaning, actions).
+  \item Encapsulation: each layer adds a header. TCP 20 + IP 20 + Ethernet 14 = \hl{54 B} of headers (+4 B CRC trailer, +8 B preamble on the wire). Useful fraction $=D/(D+54)$.
+  \item Narrow waist: $A$ apps, $L$ links need $A+L$ adaptations instead of $A\times L$.
+\end{itemize}
+
+\section{MAC: the basics}
+\begin{itemize}
+  \item Wish list, rate $R$: one node alone $\to R$; $M$ busy $\to R/M$ each; decentralized; no clock sync; simple.
+  \item TDMA/FDMA, $N$ stations: each gets $R/N$ \emph{always}, even when alone. No collisions; idle slots are wasted.
+  \item Goodput (efficiency) = fraction of time with a \emph{successful} transmission. Throughput = fraction with \emph{any} transmission (in [KR]: a rate in bit/s). Useful rate $=\eta B$.
+  \item $T=L/B$: slot = time to send one frame of $L$ bits at bandwidth $B$.
+\end{itemize}
+
+\section{ALOHA, binomial ($n$ nodes, each sends w.p.\ $p$)}
+\begin{itemize}
+  \item \textbf{Slotted}: one given node succeeds $p(1-p)^{n-1}$; some node succeeds (disjoint, add):
+  \[ \eta=np(1-p)^{n-1},\qquad p^*=\tfrac1n, \]
+  \[ \eta^*=(1-\tfrac1n)^{n-1}\to\tfrac1e\approx0.37. \]
+  \item \textbf{Pure}: vulnerable window $2T$, each other node must skip 2 slots:
+  \[ \eta=np(1-p)^{2(n-1)},\quad p^*=\tfrac1{2n-1},\quad \eta^*\to\tfrac1{2e}\approx0.18. \]
+  \item $(1-\frac1N)^N\to\frac1e$ and $(1-\frac1N)^{N-1}\to\frac1e$.
+  \item Slot types at $p=1/n$, many nodes: 37\% success, 37\% empty, 26\% collision.
+  \item Finite-$n$ optimum is above the limit: slotted $n{=}2$: 0.50, $n{=}5$: 0.41; pure $n{=}2$: 0.296, $n{=}5$: 0.216.
+\end{itemize}
+
+\section{ALOHA, Poisson ($G$ attempts per slot)}
+\begin{itemize}
+  \item Slotted: $\eta=Ge^{-G}$, max $1/e$ at $G=1$. Empty slot $e^{-G}$; collision $1-e^{-G}-Ge^{-G}$.
+  \item Pure: $\eta=Ge^{-2G}$, max $1/(2e)$ at $G=\frac12$.
+  \item Binomial with $p=G/n$, $n\to\infty$ gives Poisson. If $\lambda$ is per second, $G=\lambda T$.
+\end{itemize}
+
+\section{Goodput: two views}
+\begin{itemize}
+  \item One slot: $\eta=\E[T_{\text{suc}}]/T=P_{\text{suc}}$.
+  \item Wait for success: slots until success $\sim$ Geo$(P_{\text{suc}})$, so $\eta=T/(T/P_{\text{suc}})=P_{\text{suc}}$. Time between successes $=T/P_{\text{suc}}$.
+\end{itemize}
+
+\section{CSMA / CSMA/CD (Ethernet)}
+\begin{itemize}
+  \item CSMA: listen first. Collisions still happen because of the propagation delay. Plain CSMA wastes the whole frame.
+  \item CD: abort when a collision is heard. Worst-case detection $\approx2\,\PROP$, so
+  \[ \TRANSP\ge2\,\PROP\ \Longleftrightarrow\ L_{\min}=2\,\PROP\cdot R=\tfrac{2dR}{s}. \]
+  \item Slot $=2\,\PROP$; won w.p.\ $\alpha=Np(1-p)^{N-1}$; wasted slots $A=\frac{1-\alpha}{\alpha}$ ($\alpha=0.4\Rightarrow A=1.5$).
+  \item $\eta=\dfrac{\TRANSP}{\TRANSP+A\cdot2\,\PROP}=\dfrac1{1+3a}$ (simple); $\approx\dfrac1{1+5a}$ (precise), $a=\dfrac{\PROP}{\TRANSP}=\dfrac{t_{\text{prop}}}{t_{\text{trans}}}$.
+  \item Backoff after the $m$-th collision: $K\in\{0,\dots,2^{\min(m,10)}-1\}$, wait $K\cdot512$ bit times. Bit time $=1/R$ (0.1\,$\mu$s at 10\,Mbps; $512\to51.2\,\mu$s). Two nodes collide again w.p.\ $1/2^m$. Jam = 48 bits.
+\end{itemize}
+
+\section{Addresses, WiFi}
+\begin{itemize}
+  \item MAC address: 48 bits, flat, portable; IEEE fixes 24 bits, the vendor 24 ($2^{24}$ per block). IP: hierarchical, not portable.
+  \item 802.11: no CD (own signal drowns others; hidden terminal; fading) $\Rightarrow$ CSMA/CA: wait DIFS; if busy, random backoff that counts down only while idle; receiver ACKs after SIFS; no ACK $\Rightarrow$ larger backoff.
+  \item RTS/CTS: short RTS (may collide, cheaply); the CTS is heard by everyone, including hidden nodes $\Rightarrow$ no data-frame collisions.
+\end{itemize}
+
+\section{Exam patterns (recitation)}
+\begin{itemize}
+  \item \emph{One specific} node succeeds: $p\cdot(\text{others silent})$, no factor $n$. \emph{Any} node (network goodput): multiply by $n$, i.e.\ $\binom n1$.
+  \item Choice of network or case: law of total probability, $p\,P_1+(1-p)P_2$.
+  \item Pure node vs.\ slotted node: each pure node must skip \emph{every} own slot that overlaps. Vulnerable window $=$ own length $+$ other's length.
+  \item Q1: C one shot $=q[p(1-q)^2+(1-p)(1-q)^6]$; upper goodput $=p\cdot3q(1-q)^2+(1-p)\cdot2q(1-q)$.
+  \item Q2 ($n$ pure nodes with slot $T$, $n$ slotted with slot $2T$): slotted node $p(1-p)^{n-1}(1-p)^{3n}$; pure node $\frac12p(1-p)^{2(n-1)}[(1-p)^n+(1-p)^{2n}]$.
+  \item Q2c (all synchronized): with $s=np(1-p)^{n-1}$, $z=(1-p)^n$: $\eta=sz^2+sz=sz(1+z)$. Linearity of expectation avoids case splits.
+\end{itemize}
+
+\end{multicols}
+\begin{fixes}[ \textperiodcentered\ WEEK 02]
+\begin{itemize}
+  \fix{L2 s.19}{\texttt{Content-Length: 21}}{``Site under construction'' is 23 bytes.}
+  \fix{L2 s.30}{narrow ``waste''}{narrow \emph{waist}.}
+  \fix{L2 s.42/96}{``collision domain'' = ``broadcast domain''}{same on a bus only; a switched star has one broadcast domain and one collision domain per cable.}
+  \fix{L2 s.45}{partitioning is ``centralized''}{needs only an agreement in advance; [KR] has 3 classes: partitioning, random access, taking turns.}
+  \fix{L2 s.103}{time/frequency ``modulation''}{time/frequency \emph{division}.}
+  \fix{L2 s.67}{success probability ``drops'' to $1-p$}{it \emph{rises} (from $(1-p)^n$); $1/(1-p)$ is per hop, $n/(1-p)$ in total.}
+  \fix{L2 s.73}{$Np(1-p)^{N-1}$ is ``approx.''}{exact (disjoint events); only the limit $1/e$ is approximate.}
+  \fix{L2 s.84}{$\alpha_{\max}\approx37\%\approx40\%$}{$(1-\frac1N)^{N-1}$: 41\% at $N{=}5$, 37\% only as $N\to\infty$; with $\alpha=1/e$, $A=e-1\approx1.72$.}
+  \fix{R2 s.6}{Wi-Fi = layer 1; ``MAC'' = a layer-2 protocol}{Wi-Fi and Ethernet are layers 1+2; MAC is a sub-layer (ALOHA, CSMA/CD, CSMA/CA).}
+  \fix{R2 s.19}{rate $\lambda$ ``per $T$'' with Poi$(\lambda T)$}{$\lambda$ per second $\Rightarrow$ Poi$(\lambda T)$; per slot $\Rightarrow$ Poi$(\lambda)$.}
+  \fix{R2 s.20}{4 models announced}{only the binomial ones are done; Poisson results above.}
+  \fix{R2 s.30}{$P(\cdot)\cap P(\cdot)$; $P(\text{some node sends})=np$}{$P(A\cap B)$; $P(\text{some sends})=1-(1-p)^n$; the $n$ comes from adding disjoint successes.}
+  \fix{R2 s.31}{goodput ``is'' $1/(2e)$}{only as $n\to\infty$; larger for finite $n$.}
+\end{itemize}
+\end{fixes}
+
+\end{document}
