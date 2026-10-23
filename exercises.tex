@@ -15,6 +15,7 @@
 \newcommand{\E}{\mathbb{E}}
 \newcommand{\PROP}{\text{PROP}}
 \newcommand{\TRANSP}{\text{TRANSP}}
+\newcommand{\cmpl}[1]{\overline{#1}}
 
 \titleformat{\section}{\sffamily\bfseries\large\color{pgold}}{}{0pt}{}[\vspace{-2pt}{\color{border}\titlerule[0.8pt]}]
 \titlespacing*{\section}{0pt}{0.9em}{0.5em}
@@ -32,12 +33,16 @@
 \newcommand{\q}[3]{\par\needspace{3\baselineskip}\smallskip\noindent{\sffamily\bfseries\color{border}Q#1}\quad{\color{pgold}\diff{#2}}\quad\src{#3}\par\nopagebreak}
 \newcommand{\s}[1]{\par\needspace{3\baselineskip}\smallskip\noindent{\sffamily\bfseries\color{pgreen}Q#1}\par\nopagebreak}
 
+\newcommand{\idea}[1]{\par\noindent{\color{pcyan}\sffamily\bfseries Idea.}\ #1\par}
+\newcommand{\ans}[1]{\par\noindent\colorbox{surface2}{\parbox{\dimexpr\linewidth-2\fboxsep}{{\color{pgreen}\sffamily\bfseries Answer.}\ #1}}\par}
+\newcommand{\watch}[1]{\par\noindent{\color{pgold}\sffamily\bfseries Watch out:}\ #1\par}
+
 \begin{document}
 
 {\sffamily\bfseries\fontsize{24}{28}\selectfont\color{pgold}Exercises}\hfill{\ttfamily\small\color{pgreen}HUJI 67594 \textperiodcentered\ updated weekly}\par
 \vspace{2pt}{\color{border}\rule{\linewidth}{1.4pt}}\par
 \begin{plainbox}
-\textbf{How to use.} Each week has its questions first and its solutions on a separate page, so you can work without seeing the answers.
+\textbf{How to use.} Each week has its questions first and its solutions on a separate page, so you can work without seeing the answers. Every solution gives the \emph{idea} (which tool and why), numbered steps with all numbers, a boxed \emph{answer}, and a \emph{watch out} line where people often slip.
 Difficulty: \diff1 direct use of a formula, \diff2 several steps, \diff3 exam level. Sources:
 \src{KR 6.P11} = Kurose \& Ross, 8th ed., chapter 6, problem 11 (reworded); \src{R2}, \src{T1} = a variant of a recitation or tutorial question with new numbers; \src{own} = written for this sheet.
 The formulas are in \texttt{formula\_sheet.pdf}; the explanations are in \texttt{weekNN.pdf}.
@@ -121,61 +126,131 @@ In each interval of length $T$ the number of packets sent is $\text{Pois}(gT)$. 
 % =================================================================
 
 \s{1.1}
-(a) $d_{\text{prop}}=m/s$, $d_{\text{trans}}=L/R$, end-to-end $=L/R+m/s$.
-(b) It is just leaving A. (c) The first bit is still on the link, $s\cdot d_{\text{trans}}$ metres from A; it has not reached B.
-(d) $m=s\cdot L/R=2.5\times10^8\cdot12\,000/10^7=2.5\times10^8\cdot1.2\times10^{-3}=300$\,km.
+\idea{Two different delays. Transmission $=$ the time to push all the bits out of A (depends on $L$ and $R$). Propagation $=$ the time one bit needs to travel the wire (depends on $m$ and $s$).}
+\begin{enumerate}
+  \item[(a)] $d_{\text{prop}}=m/s$ and $d_{\text{trans}}=L/R$. The last bit leaves A at $t=L/R$ and needs $m/s$ more to arrive, so the end-to-end delay is $L/R+m/s$.
+  \item[(b)] At $t=d_{\text{trans}}$, A has just pushed out its last bit: the last bit is \emph{at A}, just leaving.
+  \item[(c)] The first bit left at $t=0$ and has travelled for $d_{\text{trans}}$ seconds, i.e.\ $s\cdot d_{\text{trans}}$ metres. Since $d_{\text{prop}}>d_{\text{trans}}$, this is less than $m$: the first bit is still on the wire and has not reached B.
+  \item[(d)] Set $m/s=L/R$, so $m=sL/R$. $L=1500\times8=12\,000$ bits, $L/R=12\,000/10^7=1.2$\,ms, $m=2.5\times10^8\times1.2\times10^{-3}=3\times10^5$\,m.
+\end{enumerate}
+\ans{(a) $L/R+m/s$; (b) at A, leaving; (c) $s\,d_{\text{trans}}$ from A, still on the wire; (d) $m=300$\,km.}
+\watch{bytes $\to$ bits ($\times8$) before dividing by $R$.}
 
 \s{1.2}
-Each link: $L/R=12\,000/2.5\times10^6=4.8$\,ms; three links: $14.4$\,ms (store-and-forward transmits on every link).
-Propagation: $20+16+4=40$\,ms. Processing: $2\times3=6$\,ms. Total $=14.4+40+6=$ \textbf{60.4\,ms}.
+\idea{Store-and-forward: each switch waits for the \emph{whole} packet before sending it on, so the transmission time is paid on every link. Add the four kinds of delay.}
+\begin{enumerate}
+  \item Transmission: $L=1500\times8=12\,000$ bits; per link $12\,000/(2.5\times10^6)=4.8$\,ms; three links: $14.4$\,ms.
+  \item Propagation: $5\times10^6/2.5\times10^8=20$\,ms, $4\times10^6/2.5\times10^8=16$\,ms, $10^6/2.5\times10^8=4$\,ms; total $40$\,ms.
+  \item Processing: only at the 2 switches: $2\times3=6$\,ms.
+  \item Queuing: $0$ (given).
+\end{enumerate}
+\ans{$14.4+40+6=60.4$\,ms.}
+\watch{km $\to$ m; processing happens at 2 switches, not 3.}
 
 \s{1.3}
-(a) Half a packet plus four packets: $(0.5+4)\times4.8$\,ms $=$ \textbf{21.6\,ms}. (b) $\dfrac{nL+(L-x)}{R}$.
+\idea{The new packet waits until every bit ahead of it has been transmitted.}
+\begin{enumerate}
+  \item One packet takes $L/R=12\,000/(2.5\times10^6)=4.8$\,ms.
+  \item Ahead of it: the remaining half of the current packet ($2.4$\,ms) and 4 full packets ($4\times4.8=19.2$\,ms).
+  \item General case: the current packet still has $L-x$ bits to send, and $n$ packets hold $nL$ bits.
+\end{enumerate}
+\ans{(a) $2.4+19.2=21.6$\,ms; (b) $\dfrac{nL+(L-x)}{R}$.}
 
 \s{1.4}
-(a) Each link takes $10^6/(5\times10^6)=0.2$\,s; store-and-forward over 3 links: \textbf{0.6\,s}.
-(b) One packet per link: $10^4/(5\times10^6)=2$\,ms. The first packet reaches switch 1 at $2$\,ms; the second is fully received there at $4$\,ms.
-(c) $(N+K-1)\,L/R=(3+100-1)\times2$\,ms $=$ \textbf{204\,ms}, about 3 times faster: the links work in parallel (a pipeline) instead of waiting for the whole message.
+\idea{Without segmentation every link must receive the whole message before the next link can start. With packets, the links work at the same time, like a pipeline.}
+\begin{enumerate}
+  \item[(a)] The message takes $10^6/(5\times10^6)=0.2$\,s on one link. It is stored at each switch, so the 3 links are used one after the other: $3\times0.2=0.6$\,s.
+  \item[(b)] One packet takes $10^4/(5\times10^6)=2$\,ms per link. Packet 1 reaches switch 1 at $t=2$\,ms. From $2$ to $4$\,ms the source sends packet 2 (while switch 1 forwards packet 1), so packet 2 is fully at switch 1 at $t=4$\,ms.
+  \item[(c)] Packet 1 needs $3\times2=6$\,ms to reach the destination. After that, one packet arrives every $2$\,ms, so the other 99 arrive $99\times2=198$\,ms later. Total $6+198=204$\,ms. This is the formula $(N+K-1)L/R=(3+100-1)\times2$\,ms.
+\end{enumerate}
+\ans{(a) $0.6$\,s; (b) $2$\,ms and $4$\,ms; (c) $204$\,ms, about 3 times faster, because all three links are busy at the same time.}
 
 \s{1.5}
-Each circuit gets $2\,\text{Mbps}/20=100$\,kbps, so transmission takes $10^6/10^5=10$\,s. Total $=10+0.3=$ \textbf{10.3\,s}.
-It does not depend on the number of links: the bits stream through the reserved path without store-and-forward.
+\idea{TDM gives the circuit a fixed share of the link rate. The setup is paid once, and then the bits stream through.}
+\begin{enumerate}
+  \item The circuit's rate is $2\,\text{Mbps}/20=100$\,kbps.
+  \item Transmission: $10^6/10^5=10$\,s.
+  \item Add the setup: $10+0.3=10.3$\,s.
+\end{enumerate}
+\ans{$10.3$\,s. It does not depend on the number of links: the switches do not store the file, they pass the bits straight through the reserved path.}
 
 \s{1.6}
-(a) $A/P=50/1000=$ \textbf{5\%}. (b) Reserve the peak: $10/1=$ \textbf{10}. (c) $10\,000/50=$ \textbf{200}. Statistical multiplexing aims at something close to (c).
+\idea{A circuit must reserve the \emph{peak} rate. Utilization $=$ what is used on average $\div$ what is reserved.}
+\begin{enumerate}
+  \item[(a)] $A/P=50\,\text{kbps}/1000\,\text{kbps}=5\%$.
+  \item[(b)] Each reserves $1$\,Mbps: $10/1=10$ applications.
+  \item[(c)] Each needs only $50$\,kbps: $10\,000/50=200$ applications.
+\end{enumerate}
+\ans{5\%; 10; 200. Packet switching (statistical multiplexing) gets close to (c), because the applications rarely peak at the same time.}
 
 \s{1.7}
-(a) $La/R=1000\cdot900/10^6=$ \textbf{0.9}. (b) It must stay below 1: $a<10^6/1000=$ \textbf{1000} packets/s. At 0.9 the queue is stable but the queuing delay is already large.
+\idea{Traffic intensity $I=La/R$ $=$ bits arriving per second $\div$ bits the link can send per second.}
+\begin{enumerate}
+  \item[(a)] Arriving: $1000\times900=9\times10^5$ bit/s. $I=9\times10^5/10^6=0.9$.
+  \item[(b)] Stable needs $La<R$: $a<10^6/1000=1000$ packets/s.
+\end{enumerate}
+\ans{(a) $0.9$; (b) $a<1000$ packets/s.}
+\watch{$I<1$ only means the queue does not grow forever. At $I=0.9$ the queuing delay is already large.}
 
 \s{1.8}
-(a) $10\,\text{Mbps}/200\,\text{kbps}=$ \textbf{50} users.
-(b) $X\sim\text{Bin}(120,0.1)$: $P(X=n)=\binom{120}{n}0.1^n0.9^{120-n}$.
-(c) $P(X\ge51)=\sum_{n=51}^{120}\binom{120}{n}0.1^n0.9^{120-n}\approx2\times10^{-20}$. The mean is 12 and the standard deviation $\sqrt{120\cdot0.1\cdot0.9}\approx3.3$, so 51 is about 12 standard deviations away.
-Packet switching serves 120 users where circuit switching serves 50, and the link is practically never overloaded.
+\idea{Circuit switching: divide the link rate. Packet switching: count the active users, which is a binomial random variable.}
+\begin{enumerate}
+  \item[(a)] $10\,\text{Mbps}/200\,\text{kbps}=50$ users.
+  \item[(b)] Each of the 120 users is active independently with probability $0.1$, so $X\sim\text{Bin}(120,0.1)$ and $P(X=n)=\binom{120}{n}0.1^n0.9^{120-n}$.
+  \item[(c)] The link holds 50 active users, so overload means $X\ge51$: $P(X\ge51)=\sum_{n=51}^{120}\binom{120}{n}0.1^n0.9^{120-n}$. Sense check: the mean is $np=12$ and the standard deviation $\sqrt{np(1-p)}=\sqrt{10.8}\approx3.3$, so 51 is $(51-12)/3.3\approx12$ standard deviations above the mean. Numerically the sum is about $2\times10^{-20}$.
+\end{enumerate}
+\ans{(a) 50; (b) $\binom{120}{n}0.1^n0.9^{120-n}$; (c) $\approx2\times10^{-20}$: packet switching serves 120 users where circuits serve 50, and is practically never overloaded.}
 
 \s{1.9}
-(a) $N=10^9/10^5=$ \textbf{10\,000}. (b) $P(X>N)=\sum_{k=N+1}^{M}\binom Mk p^k(1-p)^{M-k}$, with $X\sim\text{Bin}(M,p)$.
+\begin{enumerate}
+  \item[(a)] $N=10^9/10^5=10\,000$ users.
+  \item[(b)] Active users $X\sim\text{Bin}(M,p)$. ``More than $N$'' means $X\ge N+1$.
+\end{enumerate}
+\ans{(a) $10\,000$; (b) $P(X>N)=\sum_{k=N+1}^{M}\binom Mk p^k(1-p)^{M-k}=1-\sum_{k=0}^{N}\binom Mk p^k(1-p)^{M-k}$.}
 
 \s{1.10}
-Let $A$ = ``survives 2\,ms'', $B$ = ``good''.
-(a) Total probability: $P(A)=0.2e^{-0.002}+0.8e^{-2}=0.1996+0.1083=$ \textbf{0.308}.
-(b) Bayes: $P(B\mid A)=0.1996/0.308=$ \textbf{0.648}. Surviving raised the chance of ``good'' from $0.2$ to $0.65$.
+\idea{(a) We do not know the packet's type, so split on it (total probability). (b) We know the result and ask about the cause, so reverse the condition (Bayes).}
+Let $A$ = ``survives $t=2$\,ms'' and $B$ = ``good''. Given: $P(B)=0.2$, $P(A\mid B)=e^{-0.002}=0.998$, $P(A\mid\cmpl B)=e^{-1000\cdot0.002}=e^{-2}=0.135$.
+\begin{enumerate}
+  \item[(a)] $P(A)=P(A\mid B)P(B)+P(A\mid\cmpl B)P(\cmpl B)=0.998\cdot0.2+0.135\cdot0.8=0.1996+0.1083=0.308$.
+  \item[(b)] $P(B\mid A)=\dfrac{P(A\mid B)P(B)}{P(A)}=\dfrac{0.1996}{0.308}=0.648$.
+\end{enumerate}
+\ans{(a) $0.308$; (b) $0.648$. Surviving raised the chance of ``good'' from $0.2$ to $0.65$, because bad packets rarely survive even 2\,ms.}
 
 \s{1.11}
-(a) All 5 links must work (independent, so multiply): $0.95^5=$ \textbf{0.774}.
-(b) Attempts $\sim\text{Geo}(0.774)$, mean $1/0.774=1.292$, so on average \textbf{0.29} retransmissions ($=$ attempts $-1$).
+\begin{enumerate}
+  \item[(a)] The packet must survive all 5 links; they are independent, so multiply: $0.95^5=0.774$.
+  \item[(b)] Each attempt succeeds independently with probability $0.774$, so the number of attempts is $\text{Geo}(0.774)$ with mean $1/0.774=1.292$. The first attempt is not a retransmission: $1.292-1=0.292$.
+\end{enumerate}
+\ans{(a) $0.774$; (b) $0.29$ retransmissions on average.}
+\watch{``retransmissions'' $=$ attempts $-1$.}
 
 \s{1.12}
-(a) An attempt succeeds with probability $0.8^4=0.4096$, so $\E[\text{attempts}]=1/0.4096=$ \textbf{2.44}.
-An attempt uses link $k$ only if links $1..k-1$ worked: $\E[\text{links per attempt}]=1+0.8+0.64+0.512=2.952$. Total $2.44\times2.952\approx$ \textbf{7.2} link transmissions.
-(b) Each hop needs $\text{Geo}(0.8)$ sends, mean $1.25$; four hops: \textbf{5}. Hop-by-hop is cheaper because a loss only repeats one link, not the whole path.
+\idea{End to end: a loss anywhere repeats the whole path. Hop by hop: a loss repeats only that link. Count link transmissions in both cases.}
+\begin{enumerate}
+  \item[(a)] One attempt succeeds with probability $0.8^4=0.4096$, so the attempts are $\text{Geo}(0.4096)$: mean $1/0.4096=2.44$.
+  An attempt always uses link 1; it uses link 2 only if link 1 worked ($0.8$), link 3 only if links 1--2 worked ($0.64$), link 4 with probability $0.512$.
+  By linearity of expectation, one attempt uses $1+0.8+0.64+0.512=2.952$ links on average. Total: $2.44\times2.952\approx7.2$ link transmissions.
+  \item[(b)] Each hop is retried until it works: $\text{Geo}(0.8)$, mean $1/0.8=1.25$ sends. Four hops: $4\times1.25=5$.
+\end{enumerate}
+\ans{(a) $2.44$ attempts, $\approx7.2$ link transmissions; (b) $5$. Hop by hop is cheaper.}
 
 \s{1.13}
-(a) $\text{Pois}(3)$: $e^{-3}=$ \textbf{0.050}. (b) $\text{Pois}(1.5)$: $e^{-1.5}\,1.5^2/2=$ \textbf{0.251}.
-(c) \textbf{1/3\,s}. Inter-arrival times are $\text{Exp}(3)$, which is memoryless: the 2\,s already waited change nothing.
+\idea{In a Poisson process with rate $\lambda$, the count in a window of length $t$ is $\text{Pois}(\lambda t)$, and the gaps are $\text{Exp}(\lambda)$, which is memoryless.}
+\begin{enumerate}
+  \item[(a)] 1\,s: $\text{Pois}(3)$. $P(0)=e^{-3}=0.050$.
+  \item[(b)] 0.5\,s: $\text{Pois}(1.5)$. $P(2)=e^{-1.5}\,\dfrac{1.5^2}{2!}=0.2231\times1.125=0.251$.
+  \item[(c)] Memorylessness: the remaining wait is again $\text{Exp}(3)$, with mean $1/3$\,s, whatever the time already waited.
+\end{enumerate}
+\ans{(a) $0.050$; (b) $0.251$; (c) $1/3$\,s.}
+\watch{Scale the mean with the window: $\lambda t$, not $\lambda$.}
 
 \s{1.14}
-(a) $P(X=1)=gT\,e^{-gT}$. (b) The derivative $(1-gT)e^{-gT}$ is zero at $gT=1$, where the value is $1/e\approx$ \textbf{0.368}. This is slotted ALOHA's best goodput (week 2).
+\begin{enumerate}
+  \item[(a)] $P(X=1)=\dfrac{(gT)^1}{1!}e^{-gT}=gT\,e^{-gT}$.
+  \item[(b)] Write $x=gT$ and $f(x)=xe^{-x}$. Then $f'(x)=e^{-x}-xe^{-x}=(1-x)e^{-x}$, which is zero at $x=1$; $f$ rises before and falls after, so it is a maximum. $f(1)=e^{-1}$.
+\end{enumerate}
+\ans{(a) $gT\,e^{-gT}$; (b) largest at $gT=1$, value $1/e\approx0.368$. This is slotted ALOHA's best goodput (week 2).}
 
 % =================================================================
 \weekbar{02}{Lecture 2: Layering \& Broadcast \textperiodcentered\ Recitation 2: ALOHA}
@@ -266,93 +341,192 @@ In 802.11, RTS and CTS take $25\,\mu$s each and a data frame takes $500\,\mu$s.
 % =================================================================
 
 \s{2.1}
-(a) $200/(200+54)=$ \textbf{78.7\%}. (b) $200/(200+54+4+8)=200/266=$ \textbf{75.2\%}.
+\idea{Every packet carries $20$ (TCP) $+\,20$ (IP) $+\,14$ (Ethernet) $=54$ bytes of headers.}
+\begin{enumerate}
+  \item[(a)] Total $200+54=254$ bytes; useful $200/254$.
+  \item[(b)] Add the 4-byte CRC and the 8-byte preamble: $254+12=266$ bytes; useful $200/266$.
+\end{enumerate}
+\ans{(a) $78.7\%$; (b) $75.2\%$.}
 
 \s{2.2}
-HTTP: 7 (application). TLS: 6 (presentation). TCP ACKs: 4 (transport). IP routing: 3 (network). CSMA/CD: 2 (data link, MAC sub-layer). Fibre: 1 (physical).
-In the Internet stack, session (5) and presentation (6) are not separate layers: the application provides them, so TLS counts as ``application''.
+\idea{Ask what each thing does: meaning for the user (7), data format or encryption (6), process-to-process delivery (4), finding a path between networks (3), sharing one link (2), the medium (1).}
+\begin{itemize}
+  \item HTTP: 7. TLS: 6. TCP ACKs: 4. IP routing: 3. CSMA/CD: 2 (the MAC part of layer 2). Fibre: 1.
+\end{itemize}
+\ans{as above. The Internet's 5-layer stack has no separate session (5) or presentation (6) layer: the application does that work itself, so TLS counts as ``application''.}
 
 \s{2.3}
-(a) $40/8=$ \textbf{5\,Mbps} each, even though more is free. (b) $40-3\cdot5=$ \textbf{25\,Mbps} idle.
-(c) Property 2: $M=3$ busy nodes should get $R/M\approx13.3$\,Mbps each. (Property 1 also fails: a lone node would get only $R/8$.)
+\idea{TDMA gives every station a fixed $1/8$ of the time, busy or not.}
+\begin{enumerate}
+  \item[(a)] $40/8=5$\,Mbps per busy station.
+  \item[(b)] Used $3\times5=15$\,Mbps; idle $40-15=25$\,Mbps (5 of every 8 slots are empty).
+  \item[(c)] With $M=3$ busy stations, the ideal is $R/M=40/3\approx13.3$\,Mbps each.
+\end{enumerate}
+\ans{(a) $5$\,Mbps; (b) $25$\,Mbps wasted; (c) property 2 fails ($R/M$). Property 1 fails too: a station alone would still get only $5$\,Mbps, not $40$.}
 
 \s{2.4}
-(a) $\frac{d}{dp}Np(1-p)^{N-1}=N(1-p)^{N-2}[(1-p)-(N-1)p]=0\Rightarrow p^*=1/N$. Maximum $(1-\frac1N)^{N-1}\to$ \textbf{$1/e\approx0.37$}.
-(b) $\frac{d}{dp}Np(1-p)^{2N-2}=N(1-p)^{2N-3}[(1-p)-(2N-2)p]=0\Rightarrow p^*=\frac1{2N-1}$.
-Maximum $\frac{N}{2N-1}(1-\frac1{2N-1})^{2N-2}\to\frac12\cdot\frac1e=$ \textbf{$1/(2e)\approx0.18$}.
+\idea{Maximize by setting the derivative to zero (product rule), then let $N\to\infty$ using $(1-\frac1N)^N\to\frac1e$.}
+(a) Slotted, $f(p)=Np(1-p)^{N-1}$:
+\begin{enumerate}
+  \item $f'(p)=N(1-p)^{N-1}+Np\cdot(N-1)(1-p)^{N-2}\cdot(-1)$.
+  \item Factor out $N(1-p)^{N-2}$: $f'(p)=N(1-p)^{N-2}\big[(1-p)-(N-1)p\big]=N(1-p)^{N-2}\,[1-Np]$.
+  \item $f'=0\Rightarrow p^*=1/N$ (the bracket is positive before and negative after, so it is a maximum).
+  \item $f(p^*)=N\cdot\frac1N(1-\frac1N)^{N-1}=(1-\frac1N)^{N-1}=\dfrac{(1-\frac1N)^{N}}{1-\frac1N}\to\dfrac{1/e}{1}$.
+\end{enumerate}
+(b) Pure, $g(p)=Np(1-p)^{2(N-1)}$:
+\begin{enumerate}
+  \item In the same way: $g'(p)=N(1-p)^{2N-3}\big[(1-p)-2(N-1)p\big]=N(1-p)^{2N-3}\,[1-(2N-1)p]$, so $p^*=\frac1{2N-1}$.
+  \item With $M=2N-1$: $g(p^*)=\dfrac{N}{2N-1}\Big(1-\dfrac1M\Big)^{M-1}$. The first factor $\to\frac12$ and the second $\to\frac1e$.
+\end{enumerate}
+\ans{(a) $p^*=1/N$, limit $1/e\approx0.37$; (b) $p^*=1/(2N-1)$, limit $1/(2e)\approx0.18$.}
 
 \s{2.5}
-A wins a given slot with probability $q=p(1-p)^3$ ($=0.1055$ at $p=0.25$), and slots are independent.
-(a) Fail 3 times, then win: $(1-q)^3q=$ \textbf{0.0755}.
-(b) Exactly one of four: $4p(1-p)^3=$ \textbf{0.422}.
-(c) Let $s=4p(1-p)^3$. No success in slots 1--3, then success: $(1-s)^3s=0.578^3\cdot0.422=$ \textbf{0.0815}.
-(d) Efficiency $=s=$ \textbf{0.422} (here $p=1/N$, so this is the best possible for 4 nodes).
+\idea{First find the per-slot probabilities. Slots are independent, so ``first time in slot $k$'' means fail $k-1$ times, then succeed (geometric).}
+With $p=0.25$: $(1-p)^3=0.4219$.
+\begin{enumerate}
+  \item[(a)] A wins one slot when A sends and B, C, D are silent: $q=p(1-p)^3=0.25\times0.4219=0.1055$.
+  First time in slot 4: lose slots 1, 2, 3, win slot 4: $(1-q)^3q=0.8945^3\times0.1055=0.7157\times0.1055=0.0755$.
+  \item[(b)] ``Some node succeeds'' $=$ exactly one of the four sends. The four events ``node $i$ alone'' are disjoint, so add them: $s=4p(1-p)^3=0.4219$.
+  \item[(c)] Same idea with $s$: $(1-s)^3s=0.5781^3\times0.4219=0.1932\times0.4219=0.0815$.
+  \item[(d)] Efficiency $=$ the probability that a slot is successful $=s$.
+\end{enumerate}
+\ans{(a) $(1-q)^3q=0.0755$; (b) $4p(1-p)^3=0.422$; (c) $(1-s)^3s=0.0815$; (d) $0.422$, the best possible for 4 nodes, since $p=1/4=1/N$.}
+\watch{(a) is about one node ($q$, no factor 4); (b) and (c) are about any node ($s$, factor 4).}
 
 \s{2.6}
-(a) A wins when it sends and B does not: $p_A(1-p_B)$. Total efficiency $=p_A(1-p_B)+p_B(1-p_A)$.
-(b) No: $\dfrac{2p_B(1-p_B)}{p_B(1-2p_B)}=\dfrac{2(1-p_B)}{1-2p_B}>2$, because A's extra sending also blocks B more often.
-Exactly twice needs $p_A(1-p_B)=2p_B(1-p_A)$, i.e.\ \textbf{$p_A=\dfrac{2p_B}{1+p_B}$}. Check with $p_B=0.1$: $p_A=0.182$; $0.182\cdot0.9=0.164=2\cdot0.1\cdot0.818$.
-(c) A: $2p(1-p)^{N-1}$. Another node: it sends, A is silent, and the other $N-2$ are silent: $p(1-2p)(1-p)^{N-2}$.
+\idea{A slot is A's if A sends and B does not. Write each node's success probability and compare.}
+\begin{enumerate}
+  \item[(a)] A: $p_A(1-p_B)$. B: $p_B(1-p_A)$. These are disjoint, so the efficiency is $p_A(1-p_B)+p_B(1-p_A)$.
+  \item[(b)] Put $p_A=2p_B$: A gets $2p_B(1-p_B)$ and B gets $p_B(1-2p_B)$. Their ratio is $\dfrac{2(1-p_B)}{1-2p_B}$, which is more than 2 because $1-p_B>1-2p_B$.
+  Reason: A sending more often also silences B more often.
+  For exactly twice, solve $p_A(1-p_B)=2p_B(1-p_A)$: $p_A-p_Ap_B=2p_B-2p_Ap_B\Rightarrow p_A(1+p_B)=2p_B\Rightarrow p_A=\dfrac{2p_B}{1+p_B}$.
+  Check with $p_B=0.1$: $p_A=0.182$; A gets $0.182\times0.9=0.164$, B gets $0.1\times0.818=0.082$, exactly half.
+  \item[(c)] A wins: A sends ($2p$) and the other $N-1$ are silent: $2p(1-p)^{N-1}$. Another node $j$ wins: $j$ sends ($p$), A is silent ($1-2p$), and the remaining $N-2$ are silent: $p(1-2p)(1-p)^{N-2}$.
+\end{enumerate}
+\ans{(a) $p_A(1-p_B)$, total $p_A(1-p_B)+p_B(1-p_A)$; (b) no, more than twice; use $p_A=2p_B/(1+p_B)$; (c) $2p(1-p)^{N-1}$ and $p(1-2p)(1-p)^{N-2}$.}
 
 \s{2.7}
-(a) $T=L/B=2000/(2\times10^6)=$ \textbf{1\,ms}.
-(b) $\eta=8\cdot0.1\cdot0.9^7=$ \textbf{0.383}.
-(c) $1-0.9^8=$ \textbf{0.570}: the channel is busy 57\% of the time but useful only 38\%.
-(d) $0.383\times2\,\text{Mbps}=$ \textbf{765\,kbps}. (e) $T/\eta=1/0.383=$ \textbf{2.6\,ms}.
+\idea{Goodput $=$ P(exactly one sends); throughput $=$ P(at least one sends).}
+\begin{enumerate}
+  \item[(a)] $T=L/B=2000/(2\times10^6)=1$\,ms.
+  \item[(b)] $\eta=\binom81\,0.1\cdot0.9^7=0.8\times0.4783=0.383$.
+  \item[(c)] At least one sends $=1-P(\text{nobody})=1-0.9^8=1-0.4305=0.570$.
+  \item[(d)] $\eta\times B=0.383\times2$\,Mbps $=765$\,kbps.
+  \item[(e)] Successes are geometric with mean $1/\eta=2.61$ slots, i.e.\ $2.61\times1$\,ms.
+\end{enumerate}
+\ans{(a) $1$\,ms; (b) $0.383$; (c) $0.570$; (d) $765$\,kbps; (e) $\approx2.6$\,ms. The channel is busy 57\% of the time but useful only 38\%.}
 
 \s{2.8}
-(a) Success $Ge^{-G}=$ \textbf{0.268}; empty $e^{-G}=$ \textbf{0.670}; collision $1-0.670-0.268=$ \textbf{0.062}.
-(b) $Ge^{-2G}=0.4e^{-0.8}=$ \textbf{0.180}.
-(c) Slotted: increase towards $G^*=1$ (max $0.368$). Pure: decrease slightly, to $G^*=0.5$ (max $0.184$); $0.4$ is already near it.
+\idea{Poisson model: the number of attempts in a slot is $X\sim\text{Pois}(G)$, so $P(X=k)=e^{-G}G^k/k!$.}
+\begin{enumerate}
+  \item[(a)] Success $P(X=1)=Ge^{-G}=0.4\times0.6703=0.268$. Empty $P(X=0)=e^{-0.4}=0.670$. Collision: the rest, $1-0.670-0.268=0.062$.
+  \item[(b)] A pure frame succeeds if no other frame starts in its $2T$ window: $\text{Pois}(2G)$ is $0$ with probability $e^{-2G}$. So $\eta=Ge^{-2G}=0.4\,e^{-0.8}=0.4\times0.4493=0.180$.
+  \item[(c)] Slotted is best at $G^*=1$ and pure at $G^*=0.5$. $G=0.4$ is below both.
+\end{enumerate}
+\ans{(a) $0.268$, $0.670$, $0.062$; (b) $0.180$; (c) increase the load in both cases: up to $G=1$ (slotted, max $0.368$) and slightly, to $G=0.5$ (pure, max $0.184$).}
 
 \s{2.9}
-(a) Total probability over the network chosen.
-Upper (slotted): C sends and the 3 others are silent in that slot: $q(1-q)^3$.
-Lower (pure): each of the 2 others must skip both of its overlapping slots: $q\big((1-q)^2\big)^2=q(1-q)^4$.
-\[ P=q\big[p(1-q)^3+(1-p)(1-q)^4\big]=0.1\,[0.6\cdot0.729+0.4\cdot0.656]=\textbf{0.070}. \]
-(b) If C picks the upper network (prob.\ $p$) there are 4 active nodes; otherwise 3. A slot succeeds if exactly one sends:
-\[ \eta^{\text{upper}}=p\cdot4q(1-q)^3+(1-p)\cdot3q(1-q)^2=0.6\cdot0.292+0.4\cdot0.243=\textbf{0.272}. \]
-(Note the difference: (a) is about \emph{C}, one node, no $\binom n1$; (b) is about the \emph{network}, any node.)
+\idea{(a) asks about \emph{C's} message: split on the network C chooses (total probability). (b) asks about the \emph{network}: a slot is useful if any one node succeeds.}
+(a) One attempt.
+\begin{enumerate}
+  \item Upper (slotted): C sends ($q$) and each of the 3 others is silent in that one slot: $q(1-q)^3=0.1\times0.729=0.0729$.
+  \item Lower (pure): C's frame overlaps \emph{two} slots of each other node, so each must skip both, $(1-q)^2$; with 2 nodes, $(1-q)^4$. So $q(1-q)^4=0.1\times0.6561=0.0656$.
+  \item Combine: $p\times0.0729+(1-p)\times0.0656=0.6\times0.0729+0.4\times0.0656=0.0437+0.0262$.
+\end{enumerate}
+(b) Goodput of the upper network.
+\begin{enumerate}
+  \item C chose upper ($p$): 4 nodes, each sending with probability $q$; exactly one: $4q(1-q)^3=0.2916$.
+  \item C chose lower ($1-p$): 3 nodes: $3q(1-q)^2=0.243$.
+  \item $\eta=0.6\times0.2916+0.4\times0.243=0.175+0.097$.
+\end{enumerate}
+\ans{(a) $q[p(1-q)^3+(1-p)(1-q)^4]=0.070$; (b) $p\cdot4q(1-q)^3+(1-p)\cdot3q(1-q)^2=0.272$.}
+\watch{one specific node (C) $\to$ no factor $n$; the whole network $\to$ factor $n$ ($\binom n1$).}
 
 \s{2.10}
-(a) The slotted node sends ($p$); the other $n-1$ slotted nodes are silent in this slot ($(1-p)^{n-1}$).
-A pure frame of length $T$ starting anywhere in $(t-T,t+T)$ overlaps the slot; each pure node has exactly 2 slot starts there: $(1-p)^{2m}$.
-\[ P_{\text{slotted}}=p(1-p)^{n-1}(1-p)^{2m}. \]
-(b) The other pure nodes: $(1-p)^{2(m-1)}$, as in plain pure ALOHA. The pure frame is not aligned with the grid, so it always straddles \textbf{two} grid slots: all $n$ slotted nodes must skip both, $(1-p)^{2n}$.
-\[ P_{\text{pure}}=p(1-p)^{2(m-1)}(1-p)^{2n}. \]
-(c) Slotted: $0.1\cdot0.9^{14}=$ \textbf{0.0229}. Pure: $0.1\cdot0.9^{18}=$ \textbf{0.0150}. The slotted node does better: it is exposed to one slot of each slotted node, while the unaligned pure frame is exposed to two slots of everyone.
+\idea{For each competitor, ask: how many of its slot starts fall in the window where a start would hit my frame? Each such start must be skipped.}
+(a) A slotted node's slot is $[t,t+T]$.
+\begin{enumerate}
+  \item It sends: $p$.
+  \item The other slotted nodes use the same aligned slot; each must be silent: $(1-p)^{n-1}$.
+  \item A pure frame $[u,u+T]$ overlaps $[t,t+T]$ if $u\in(t-T,\,t+T)$, a window of length $2T$. A pure node starts every $T$, so exactly 2 of its starts fall there; it must skip both: $(1-p)^2$. With $m$ pure nodes: $(1-p)^{2m}$.
+  \item Different nodes are independent, so multiply: $p(1-p)^{n-1}(1-p)^{2m}$.
+\end{enumerate}
+(b) A pure node's frame $[u,u+T]$, with $u$ between two grid points.
+\begin{enumerate}
+  \item It sends: $p$.
+  \item The other pure nodes: 2 starts each in its window, as in plain pure ALOHA: $(1-p)^{2(m-1)}$.
+  \item The frame covers the end of one grid slot and the start of the next, i.e.\ \textbf{two} slots. Every slotted node must be silent in both: $(1-p)^{2n}$.
+  \item Multiply: $p(1-p)^{2(m-1)}(1-p)^{2n}$.
+\end{enumerate}
+(c) Slotted: $0.1\times0.9^{4}\times0.9^{10}=0.1\times0.9^{14}=0.0229$. Pure: $0.1\times0.9^{8}\times0.9^{10}=0.1\times0.9^{18}=0.0150$.
+\ans{(a) $p(1-p)^{n-1+2m}$; (b) $p(1-p)^{2(m-1)+2n}$; (c) $0.0229$ vs.\ $0.0150$. The slotted node does better: it is exposed to one slot of each slotted node, while the unaligned pure frame is exposed to two slots of everyone.}
 
 \s{2.11}
-$\PROP=200/(2\times10^8)=1\,\mu$s. Need $\TRANSP\ge2\,\PROP=2\,\mu$s, so $L\ge2\times10^{-6}\cdot10^9=2000$ bits $=$ \textbf{250 bytes}.
-Ethernet's 64 bytes would last only $0.512\,\mu$s at 1\,Gbps: too short to detect collisions over 200\,m. (Shared-medium gigabit Ethernet therefore had to extend short frames; in practice gigabit Ethernet is switched.)
+\idea{CSMA/CD only works if the sender is still transmitting when news of a collision comes back: $\TRANSP\ge2\,\PROP$.}
+\begin{enumerate}
+  \item $\PROP=d/s=200/(2\times10^8)=1\,\mu$s, so $2\,\PROP=2\,\mu$s.
+  \item $\TRANSP=L/R\ge2\,\mu$s gives $L\ge2\times10^{-6}\times10^9=2000$ bits $=250$ bytes.
+  \item Ethernet's 64 bytes $=512$ bits last only $512/10^9=0.512\,\mu$s $<2\,\mu$s.
+\end{enumerate}
+\ans{$250$ bytes. 64 bytes is too short at 1\,Gbps over 200\,m: a collision could go unnoticed. (In practice gigabit Ethernet is switched, so there are no collisions.)}
 
 \s{2.12}
-After 5 collisions $K\in\{0,\dots,31\}$, uniform: $P(K=4)=$ \textbf{1/32}. Delay $=4\cdot512\cdot0.1\,\mu$s $=$ \textbf{204.8\,$\mu$s}.
+\begin{enumerate}
+  \item After the $m$-th collision, $K$ is uniform on $\{0,\dots,2^m-1\}$. Here $m=5$: $\{0,\dots,31\}$, 32 values, so $P(K=4)=1/32$.
+  \item The wait is $K\cdot512$ bit times $=2048$ bit times. One bit at 10\,Mbps takes $0.1\,\mu$s: $2048\times0.1=204.8\,\mu$s.
+\end{enumerate}
+\ans{$1/32$; $204.8\,\mu$s.}
 
 \s{2.13}
-$100\cdot512=51\,200$ bit times. At 100\,Mbps (10\,ns/bit): \textbf{512\,$\mu$s}. At 1\,Gbps (1\,ns/bit): \textbf{51.2\,$\mu$s}.
+\begin{enumerate}
+  \item $K\cdot512=100\times512=51\,200$ bit times.
+  \item 100\,Mbps: a bit time is $10$\,ns, so $51\,200\times10\,\text{ns}=512\,\mu$s. 1\,Gbps: $1$\,ns, so $51.2\,\mu$s.
+\end{enumerate}
+\ans{$512\,\mu$s and $51.2\,\mu$s.}
 
 \s{2.14}
-Worst case: B starts just before A's first bit arrives, at $t\approx325$. B's signal reaches A at $t\approx325+325=650$ bit times.
-A finishes at $t=576<650$, so \textbf{yes}: A finishes before it hears B, and wrongly believes its frame got through. The cable is too long for this frame size ($\TRANSP<2\,\PROP$).
+\idea{Draw the timeline in bit times. The worst case is B starting at the last possible moment, just before A's signal reaches it.}
+\begin{enumerate}
+  \item $t=0$: A starts. A's first bit reaches B at $t=325$.
+  \item Just before $t=325$, B still senses an idle line and starts sending.
+  \item B's first bit needs another 325 bit times to reach A: it arrives at $t\approx650$.
+  \item A's minimum frame ends at $t=576$, before $650$.
+\end{enumerate}
+\ans{Yes: A finishes at 576, before hearing B at 650, so A wrongly believes its frame got through. The cable is too long for this frame size ($\TRANSP<2\,\PROP$).}
 
 \s{2.15}
-(a) $\{0,1,2,3\}$. (b) Same $K$: $4\cdot(1/4)^2=$ \textbf{1/4}.
-(c) The sets grow to 8, 16, 32 values: $\frac14\cdot\frac18\cdot\frac1{16}=$ \textbf{1/512}. (Strictly, the $K=0$ wait and ``channel busy'' rules can change this slightly; this is the usual exam answer.)
+\idea{Two nodes collide again exactly when they pick the same $K$. With $k$ equally likely values, that happens with probability $k\cdot(1/k)^2=1/k$.}
+\begin{enumerate}
+  \item[(a)] After the 2nd collision: $\{0,1,2,3\}$.
+  \item[(b)] 4 values: $1/4$.
+  \item[(c)] To collide on the next three attempts they must match from sets of 4, then 8 (after the 3rd collision), then 16 (after the 4th). The choices are independent: $\frac14\cdot\frac18\cdot\frac1{16}$.
+\end{enumerate}
+\ans{(a) $\{0,\dots,3\}$; (b) $1/4$; (c) $1/512$. (This ignores the small effect of the busy-channel rule; it is the usual exam answer.)}
 
 \s{2.16}
-$a=2/50=0.04$. (a) $1/(1+3a)=1/1.12=$ \textbf{0.893}; precise $1/(1+5a)=1/1.2=$ \textbf{0.833}.
-(b) $A=(1-\alpha)/\alpha=e-1\approx1.72$, so $\eta=1/(1+2Aa)=1/(1+3.44\cdot0.04)=$ \textbf{0.879}.
+\idea{$\eta=\dfrac{\TRANSP}{\TRANSP+A\cdot2\,\PROP}$, where $A$ is the expected number of wasted $2\,\PROP$ slots per packet.}
+\begin{enumerate}
+  \item[(a)] $a=\PROP/\TRANSP=2/50=0.04$. Simple model ($A=1.5$): $\eta=50/(50+1.5\times4)=50/56=0.893$, which is the same as $1/(1+3a)$. Precise: $1/(1+5a)=1/1.2=0.833$.
+  \item[(b)] $A=(1-\alpha)/\alpha$ with $\alpha=1/e$: $A=e-1=1.718$. Wasted time $1.718\times4=6.87\,\mu$s, so $\eta=50/56.87=0.879$.
+\end{enumerate}
+\ans{(a) $0.893$ (simple) and $0.833$ (precise); (b) $0.879$.}
 
 \s{2.17}
-(a) A contention slot is won with probability $\alpha=Np(1-p)^{N-1}$. The expected number of wasted slots before a win is $x=(1-\alpha)/\alpha$ (failures before a geometric success). Efficiency $=\dfrac{k}{k+x}=\dfrac{k}{k+(1-\alpha)/\alpha}$.
-(b) Efficiency grows with $\alpha$, so maximize $\alpha$: \textbf{$p^*=1/N$}.
-(c) $\alpha\to1/e$, $x\to e-1$: efficiency $\to$ \textbf{$\dfrac{k}{k+e-1}$}.
-(d) $\dfrac{k}{k+e-1}\to$ \textbf{1}: long frames make the contention overhead negligible (the same as $a\to0$ in the lecture).
+\idea{The channel alternates between contention (wasted slots) and a frame ($k$ useful slots). Efficiency $=$ useful $\div$ total per cycle.}
+\begin{enumerate}
+  \item[(a)] A contention slot is won if exactly one node sends: $\alpha=Np(1-p)^{N-1}$. The number of wasted slots before a win is the number of failures before the first success of $\text{Geo}(\alpha)$: $x=(1-\alpha)/\alpha$. The winning slot is the first slot of the frame, so a cycle is $x$ wasted $+\,k$ useful slots: efficiency $=\dfrac{k}{k+(1-\alpha)/\alpha}$.
+  \item[(b)] The efficiency grows as $x$ shrinks, i.e.\ as $\alpha$ grows. $\alpha$ is maximized at $p^*=1/N$ (Q2.4).
+  \item[(c)] $\alpha\to1/e$, so $x\to(1-\frac1e)\,e=e-1\approx1.72$.
+  \item[(d)] $\dfrac{k}{k+1.72}\to1$ as $k\to\infty$. For example $k=100$: $0.983$.
+\end{enumerate}
+\ans{(a) $\dfrac{k}{k+(1-\alpha)/\alpha}$ with $\alpha=Np(1-p)^{N-1}$; (b) $p^*=1/N$; (c) $\dfrac{k}{k+e-1}$; (d) $\to1$: long frames make contention negligible, the same as $a\to0$ in the lecture.}
 
 \s{2.18}
-(a) $50\,\mu$s per $500\,\mu$s frame: \textbf{10\%}.
-(b) Without RTS/CTS a collision wastes a whole data frame, $500\,\mu$s; with it only an RTS, $25\,\mu$s.
-(c) When collisions are rare (light load) or frames are short: then the fixed $50\,\mu$s costs more than the collisions it prevents.
+\begin{enumerate}
+  \item[(a)] Extra time per frame: $25+25=50\,\mu$s on a $500\,\mu$s frame, i.e.\ $10\%$.
+  \item[(b)] Without RTS/CTS, a collision destroys a whole data frame: $500\,\mu$s. With it, only an RTS collides: $25\,\mu$s.
+  \item[(c)] It costs $50\,\mu$s on every frame and saves time only when there is a collision.
+\end{enumerate}
+\ans{(a) $10\%$; (b) $500$ vs.\ $25\,\mu$s; (c) not worth it when collisions are rare (light load, no hidden terminals) or frames are short.}
 
 \end{document}
